@@ -1,0 +1,22 @@
+LIBRARY	"SAHandlerLoader"
+
+EXPORTS
+	Loader_Initialize
+	Loader_Uninitialize
+	Loader_GetBasicHandlerLoaderInterface
+	Loader_SetAgentStatus
+	Loader_SetFuncCB
+	
+	Loader_GetLastHandler
+	Loader_FindHandler
+	Loader_FindHandlerByReqID
+	
+	Loader_LoadVirtualHandler
+	Loader_LoadHandler
+	Loader_AddHandler
+	Loader_ReleaseHandler
+	Loader_LoadAllHandler
+	Loader_StartAllHandler
+	Loader_StopAllHandler
+	Loader_ReleaseAllHandler
+	Loader_ConcurrentReleaseAllHandler

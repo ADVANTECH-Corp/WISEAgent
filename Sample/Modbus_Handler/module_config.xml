@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<XMLConfigSettings><BaseSettings>
+<ModuleNum>1</ModuleNum>
+<ModuleName1>Modbus_Handler</ModuleName1><ModulePath1>\module\Modbus_Handler.dll</ModulePath1><ModuleEnable1>TRUE</ModuleEnable1>
+</BaseSettings></XMLConfigSettings>

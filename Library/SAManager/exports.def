@@ -1,0 +1,14 @@
+LIBRARY	"SAManager"
+
+	EXPORTS
+		SAManager_Initialize
+		SAManager_Uninitialize
+		SAManager_SetPublishCB
+		SAManager_SetSubscribeCB
+		SAManager_SetConnectServerCB
+		SAManager_SetDisconnectCB
+		SAManager_SetOSInfoSendCB
+		SAManager_InternalSubscribe
+		SAManager_UpdateConnectState
+
+		

@@ -1,0 +1,12 @@
+#/bin/sh
+#make
+if [ -f "/usr/bin/perl" ];then
+	make 2>&1 | /usr/bin/perl -wln -M'Term::ANSIColor' -e '
+	m/Error/i and print "\e[1;91m", "$_", "\e[0m"
+	or
+	m/Warning/i and print "\e[1;93m", "$_", "\e[0m"
+	or
+	print; '
+else
+        make
+fi

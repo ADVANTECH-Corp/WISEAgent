@@ -1,0 +1,12 @@
+LIBRARY	"HandlerSample"
+ 
+EXPORTS
+	Handler_Initialize
+	Handler_Get_Status
+	Handler_OnStatusChange
+	Handler_Start
+	Handler_Stop
+	Handler_Recv
+	Handler_AutoReportStart
+	Handler_AutoReportStop
+	Handler_Get_Capability

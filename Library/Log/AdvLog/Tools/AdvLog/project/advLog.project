@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeLite_Project Name="advLog" InternalType="">
+  <Description/>
+  <Dependencies/>
+  <Settings Type="Static Library">
+    <GlobalSettings>
+      <Compiler Options="" C_Options="" Assembler="">
+        <IncludePath Value="."/>
+      </Compiler>
+      <Linker Options="">
+        <LibraryPath Value="."/>
+      </Linker>
+      <ResourceCompiler Options=""/>
+    </GlobalSettings>
+    <Configuration Name="Debug" CompilerType="clang++" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-g -Wall" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+        <IncludePath Value="."/>
+      </Compiler>
+      <Linker Options="-O0" Required="yes">
+        <LibraryPath Value="."/>
+        <LibraryPath Value="Debug"/>
+      </Linker>
+      <ResourceCompiler Options="" Required="no"/>
+      <General OutputFile="" IntermediateDirectory="./Debug" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="./Debug" PauseExecWhenProcTerminates="no" IsGUIProgram="no" IsEnabled="yes"/>
+      <Environment EnvVarSetName="&lt;Use Workspace Settings&gt;" DbgSetName="&lt;Use Global Settings&gt;">
+        <![CDATA[]]>
+      </Environment>
+      <Debugger IsRemote="no" RemoteHostName="" RemoteHostPort="" DebuggerPath="" IsExtended="no">
+        <DebuggerSearchPaths/>
+        <PostConnectCommands/>
+        <StartupCommands/>
+      </Debugger>
+      <PreBuild/>
+      <PostBuild/>
+      <CustomBuild Enabled="no">
+        <RebuildCommand/>
+        <CleanCommand/>
+        <BuildCommand/>
+        <PreprocessFileCommand/>
+        <SingleFileCommand/>
+        <MakefileGenerationCommand/>
+        <ThirdPartyToolName/>
+        <WorkingDirectory/>
+      </CustomBuild>
+      <AdditionalRules>
+        <CustomPostBuild/>
+        <CustomPreBuild/>
+      </AdditionalRules>
+      <Completion EnableCpp11="no">
+        <ClangCmpFlagsC/>
+        <ClangCmpFlags/>
+        <ClangPP/>
+        <SearchPaths/>
+      </Completion>
+    </Configuration>
+  </Settings>
+  <VirtualDirectory Name="include">
+    <File Name="../include/AdvLog.h"/>
+    <File Name="../include/internal/advstring.h"/>
+    <File Name="../include/internal/configure.h"/>
+    <File Name="../include/internal/rollingfile.h"/>
+    <File Name="../include/internal/tool.h"/>
+    <File Name="../include/internal/fplatform.h"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="sample">
+    <File Name="../sample/logconf.c"/>
+    <File Name="../sample/test.c"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="src">
+    <File Name="../src/configure.cpp"/>
+    <File Name="../src/tool.cpp"/>
+    <File Name="../src/AdvLog.cpp"/>
+    <File Name="../src/rollingfile.cpp"/>
+    <File Name="../src/advstring.cpp"/>
+    <File Name="../../AdvJSON/src/jsoncollection.c"/>
+    <File Name="../../AdvJSON/src/jsonprint.c"/>
+    <File Name="../../AdvJSON/src/jsoncreator.c"/>
+    <File Name="../../AdvJSON/src/jsonparser.c"/>
+    <File Name="../../AdvJSON/src/jsonrule.c"/>
+    <File Name="../../AdvJSON/src/AdvCJSON.c"/>
+    <File Name="../../AdvJSON/src/AdvJSON.cpp"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="inc">
+    <File Name="../../AdvJSON/inc/jsonparser.h"/>
+    <File Name="../../AdvJSON/inc/jsonrule.h"/>
+    <File Name="../../AdvJSON/inc/jsoncreator.h"/>
+    <File Name="../../AdvJSON/inc/json.hpp"/>
+    <File Name="../../AdvJSON/inc/jsonprint.h"/>
+    <File Name="../../AdvJSON/inc/jsoncollection.h"/>
+    <File Name="../../AdvJSON/inc/AdvJSON.h"/>
+    <File Name="../../AdvJSON/inc/jsontype.h"/>
+    <File Name="../../AdvJSON/inc/AdvVariousType.h"/>
+  </VirtualDirectory>
+</CodeLite_Project>

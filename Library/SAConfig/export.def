@@ -1,0 +1,21 @@
+LIBRARY "SAConfig"
+ 
+EXPORTS
+	xml_Loadfile
+	xml_CreateDoc
+	xml_SaveFile
+	xml_FreeDoc
+	xml_GetItemValue
+	xml_SetItemValue
+
+	cfg_load
+	cfg_save
+	cfg_create
+	cfg_get
+	cfg_set
+	
+	profile_load
+	profile_save
+	profile_create
+	profile_get
+	profile_set

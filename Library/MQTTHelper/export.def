@@ -1,0 +1,19 @@
+LIBRARY	"MQTTHelper"
+
+EXPORTS
+
+	MQTT_lib_version
+	MQTT_Initialize
+	MQTT_Uninitialize
+	MQTT_Callback_Set
+	MQTT_SetTLS
+	MQTT_SetTLSPSK
+	MQTT_Connect
+	MQTT_Reconnect
+	MQTT_Disconnect
+	MQTT_Publish
+	MQTT_Subscribe
+	MQTT_Unsubscribe
+	MQTT_GetSocket
+	MQTT_GetErrorString
+	MQTT_GetConnAckString

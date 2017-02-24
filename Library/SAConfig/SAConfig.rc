@@ -1,0 +1,63 @@
+#include "afxres.h"
+#include "version.h"
+
+#ifdef _WIN64
+#define OS_BIT_TYPE		" (x64)"
+#else
+#define OS_BIT_TYPE		" (x86)"
+#endif
+
+#ifndef OEM_LIB_FILEDESCRIPTION
+#define OEM_LIB_FILEDESCRIPTION			"SAConfig Dynamic Link Library"
+#endif
+
+#ifndef OEM_LIB_INTERNALNAME
+#define OEM_LIB_INTERNALNAME			"SAConfig"
+#endif
+
+#ifndef OEM_LIB_MANUFACTURER
+#define OEM_LIB_MANUFACTURER			"Advantech Co., Ltd."
+#endif
+
+#ifndef OEM_LIB_LEGALCOPYRIGHT
+#define OEM_LIB_LEGALCOPYRIGHT			"Advantech Copyright (C) 2014"
+#endif
+
+#ifndef OEM_LIB_PRODUCTNAME
+#define OEM_LIB_PRODUCTNAME				"SAConfig Dynamic Link Library"
+#endif
+
+#ifndef OEM_LIB_PRODUCTVERSION
+#define	OEM_LIB_PRODUCTVERSION			CREATE_XVER(VER_MAJOR, VER_MINOR, VER_BUILD, VER_FIX)
+#endif
+
+
+#define VER_FILEDESCRIPTION_STR			OEM_LIB_FILEDESCRIPTION OS_BIT_TYPE
+#define VER_INTERNALNAME_STR			OEM_LIB_INTERNALNAME
+#define VER_LEGALCOPYRIGHT_STR			OEM_LIB_LEGALCOPYRIGHT
+
+#undef  VER_COMPANYNAME_STR
+#define VER_COMPANYNAME_STR             OEM_LIB_MANUFACTURER
+
+#undef  VER_PRODUCTNAME_STR
+#define VER_PRODUCTNAME_STR				OEM_LIB_PRODUCTNAME
+
+#undef  VER_PRODUCTVERSION_STR
+#define VER_PRODUCTVERSION_STR			OEM_LIB_PRODUCTVERSION
+
+#define VER_ORIGINALFILENAME_STR		"SAConfig.dll"
+#define VER_FILEVERSION					CREATE_XVER(VER_MAJOR, VER_MINOR, VER_BUILD, VER_FIX)
+
+#define VER_FILEFLAGSMASK				0x17L
+
+#ifdef _DEBUG
+#define VER_FILEFLAGS					0x1L
+#else
+#define VER_FILEFLAGS					0
+#endif
+
+#define VER_FILEOS						VOS__WINDOWS32
+#define VER_FILETYPE					VFT_DLL
+#define VER_FILESUBTYPE					VFT2_UNKNOWN
+
+#include "common.ver"

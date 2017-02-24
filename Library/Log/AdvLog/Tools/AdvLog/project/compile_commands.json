@@ -1,0 +1,5 @@
+[{
+  "file": "X:\\Product\\WISE\\3310\\Library\\advLog\\src\\advLog.cpp",
+  "directory": "X:\\Product\\WISE\\3310\\Library\\advLog\\project",
+  "command": "clang++ -c X:\\Product\\WISE\\3310\\Library\\advLog\\src\\advLog.cpp -o X:\\Product\\WISE\\3310\\Library\\advLog\\src\\advLog.cpp.o  -g -Wall -I. -I."
+ }]

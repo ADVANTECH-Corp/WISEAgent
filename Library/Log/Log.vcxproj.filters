@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="Log.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="AdvLog.h" />
+    <ClInclude Include="AdvLog\Tools\AdvJSON\inc\AdvJSON.h" />
+    <ClInclude Include="AdvLog\Tools\AdvLog\include\AdvLog.h" />
+    <ClInclude Include="AdvLog\Tools\AdvLog\include\internal\configure.h" />
+    <ClInclude Include="AdvLog\Tools\AdvPlatform\include\windows\sys\sem.h" />
+    <ClInclude Include="AdvLog\Tools\AdvPlatform\include\windows\sys\shm.h" />
+    <ClInclude Include="AdvLog\Tools\AdvPlatform\include\windows\unistd.h" />
+    <ClInclude Include="AdvLog\Tools\AdvPlatform\include\windows\wrapper.h" />
+    <ClInclude Include="AdvLog\Tools\AdvPlatform\include\windows\pthread.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Log.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvJSON\src\AdvCJSON.c" />
+    <ClCompile Include="AdvLog\Tools\AdvJSON\src\AdvCollection.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvJSON\src\AdvJSON.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvJSON\src\AdvVariousType.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvJSON\src\jsoncollection.c" />
+    <ClCompile Include="AdvLog\Tools\AdvJSON\src\jsoncreator.c" />
+    <ClCompile Include="AdvLog\Tools\AdvJSON\src\jsonparser.c" />
+    <ClCompile Include="AdvLog\Tools\AdvJSON\src\jsonprint.c" />
+    <ClCompile Include="AdvLog\Tools\AdvJSON\src\jsonrule.c" />
+    <ClCompile Include="AdvLog\Tools\AdvJSON\src\jsontool.c" />
+    <ClCompile Include="AdvLog\Tools\AdvLog\src\AdvLog.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvLog\src\advstring.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvLog\src\configure.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvLog\src\rollingfile.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvLog\src\tool.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvPlatform\src\windows\getopt.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvPlatform\src\windows\pthread.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvPlatform\src\windows\unistd.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvPlatform\src\windows\sys\sem.cpp" />
+    <ClCompile Include="AdvLog\Tools\AdvPlatform\src\windows\sys\shm.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Log.rc" />
+  </ItemGroup>
+</Project>

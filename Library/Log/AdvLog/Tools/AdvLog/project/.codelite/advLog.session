@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Session Name="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\project\advLog.workspace">
+  <int Value="12" Name="m_selectedTab"/>
+  <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\project\advLog.workspace" Name="m_workspaceName"/>
+  <TabInfoArray Name="TabInfoArray">
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT.new\Tools\AdvLog\src\AdvLog.cpp" Name="FileName"/>
+      <int Value="173" Name="FirstVisibleLine"/>
+      <int Value="202" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\src\tool.cpp" Name="FileName"/>
+      <int Value="53" Name="FirstVisibleLine"/>
+      <int Value="61" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\src\AdvLog.cpp" Name="FileName"/>
+      <int Value="39" Name="FirstVisibleLine"/>
+      <int Value="48" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\src\advstring.cpp" Name="FileName"/>
+      <int Value="33" Name="FirstVisibleLine"/>
+      <int Value="0" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\include\internal\tool.h" Name="FileName"/>
+      <int Value="7" Name="FirstVisibleLine"/>
+      <int Value="15" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\src\rollingfile.cpp" Name="FileName"/>
+      <int Value="114" Name="FirstVisibleLine"/>
+      <int Value="126" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\include\internal\rollingfile.h" Name="FileName"/>
+      <int Value="7" Name="FirstVisibleLine"/>
+      <int Value="15" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\include\AdvLog.h" Name="FileName"/>
+      <int Value="91" Name="FirstVisibleLine"/>
+      <int Value="99" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\src\configure.cpp" Name="FileName"/>
+      <int Value="297" Name="FirstVisibleLine"/>
+      <int Value="329" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvJSON\src\AdvCJSON.c" Name="FileName"/>
+      <int Value="0" Name="FirstVisibleLine"/>
+      <int Value="0" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvJSON\src\AdvJSON.cpp" Name="FileName"/>
+      <int Value="5" Name="FirstVisibleLine"/>
+      <int Value="17" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvJSON\inc\AdvJSON.h" Name="FileName"/>
+      <int Value="40" Name="FirstVisibleLine"/>
+      <int Value="54" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+    <TabInfo>
+      <wxString Value="X:\Product\WISE\3310\WISE_IOT\Tools\AdvLog\sample\test.c" Name="FileName"/>
+      <int Value="9" Name="FirstVisibleLine"/>
+      <int Value="15" Name="CurrentLine"/>
+      <wxArrayString Name="Bookmarks"/>
+      <IntVector Name="CollapsedFolds"/>
+    </TabInfo>
+  </TabInfoArray>
+  <SerializedObject Name="m_breakpoints">
+    <long Value="0" Name="Count"/>
+  </SerializedObject>
+</Session>

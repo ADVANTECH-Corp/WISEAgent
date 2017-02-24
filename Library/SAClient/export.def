@@ -1,0 +1,16 @@
+LIBRARY	"SAClient"
+
+EXPORTS
+
+	saclient_initialize
+	saclient_uninitialize
+	saclient_connect
+	saclient_server_connect
+	saclient_server_connect_ssl
+	saclient_server_connect_config
+	saclient_disconnect
+	saclient_connection_callback_set
+	saclient_publish
+	saclient_subscribe
+	saclient_reconnect
+	saclient_getsocketaddress

@@ -1,0 +1,48 @@
+############################################################
+#                 RMSAgent makefile                        #
+############################################################
+CC = gcc
+
+PROJECT_ROOT_DIR = ../../
+#MOSQUITTO_LIB_DIR = /usr/lib
+#MOSQUITTO_INC_DIR = /usr/include
+PLATFORMS_DIR = $(PROJECT_ROOT_DIR)Platform
+PLATFORM_LINUX_DIR = $(PLATFORMS_DIR)/Linux
+LIB_DIR = $(PROJECT_ROOT_DIR)Library
+LIB_LOG_DIR = $(LIB_DIR)/Log
+LIB_CONN_DIR = $(LIB_DIR)/Connection
+LIB_CONFIG_DIR = $(LIB_DIR)/Configuration
+INSTALL_OUTPUT_DIR = $(PROJECT_ROOT_DIR)build
+
+CFLAGS_CAGENT = -Wall -Werror -Wno-unused-function -D_LINUX -I$(PLATFORM_LINUX_DIR) -I$(LIB_LOG_DIR) -I$(LIB_CONN_DIR) -I$(LIB_CONFIG_DIR) 
+
+LOAD_FLAGS = -L$(LIB_LOG_DIR) -L$(LIB_CONN_DIR) -L$(LIB_CONFIG_DIR) -lLog -lconnection -lconfiguration -lmosquitto -lxml2 -lpthread -Wl,-rpath,./lib/
+
+cagent_executable=cagent
+
+default: 
+	@$(MAKE) $(cagent_executable)
+
+all: 
+	@$(MAKE) clean
+	@$(MAKE) $(cagent_executable)
+	
+#---------------------------CAgent------------------------------------------
+cagent_objects = $(PLATFORM_LINUX_DIR)/platform.o $(PLATFORM_LINUX_DIR)/network.o cagent.o
+
+$(cagent_objects) : %.o : %.c
+	$(CC) -c $(CFLAGS_CAGENT) $< -o $@ 
+	
+$(cagent_executable) : $(cagent_objects)
+	$(CC) $(cagent_objects) -o $(cagent_executable) $(LOAD_FLAGS)
+
+.PHONY : clean
+
+clean : 
+	-rm -f $(TARGET) $(cagent_objects) $(cagent_executable)
+
+.PHONY : install
+install: $(cagent_executable)
+	mkdir -p $(INSTALL_OUTPUT_DIR)
+	cp $(cagent_executable) $(INSTALL_OUTPUT_DIR)
+

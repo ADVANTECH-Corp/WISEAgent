@@ -1,0 +1,25 @@
+LIBRARY	"HandlerKernel"
+
+EXPORTS
+	HandlerKernel_Initialize
+	HandlerKernel_Uninitialize
+	
+	HandlerKernel_SetCapability
+	HandlerKernel_AutoReportStart
+	HandlerKernel_AutoReportStop
+	
+	HandlerKernel_SetAutoReportFilter
+	HandlerKernel_SendAutoReportOnce
+	
+	HandlerKernel_LiveReportStart
+	HandlerKernel_ParseRecvCMD
+	HandlerKernel_ParseRecvCMDWithSessionID
+	
+	HandlerKernel_SetThreshold
+	HandlerKernel_DeleteAllThreshold
+	HandlerKernel_StartThresholdCheck
+	HandlerKernel_StopThresholdCheck
+	HandlerKernel_SetThresholdTrigger
+	
+	HandlerKernel_GetSensorData
+	HandlerKernel_SetSensorData

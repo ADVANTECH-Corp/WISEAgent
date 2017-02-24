@@ -1,0 +1,9 @@
+[IoTGW] AdvLog
+
+Date            : 2015/09/24
+Bug #           : N/A
+Description     : Auto change file extension.
+Files           :
+Reviewer        :
+Commit by       : Fred Chang
+

@@ -1,0 +1,32 @@
+#Makefile for DES
+CC = gcc
+PLATFORMS_DIR = ../../Platform
+PLATFORM_LINUX_DIR = $(PLATFORMS_DIR)/Linux
+
+INCLUDE = $(PLATFORM_LINUX_DIR)
+CFLAGS = -Wall
+
+Log_library=libLog.a
+
+default: 
+	@$(MAKE) $(Log_library) 
+
+all: 
+	@$(MAKE) clean
+	@$(MAKE) $(Log_library) 
+
+#---------------------------Log------------------------------------------
+log_objects = Log.o
+
+$(log_objects) : %.o : %.c
+	$(CC) -I$(INCLUDE) $(CFLAGS) -c $< -o $@ 
+
+$(Log_library) : $(log_objects)
+	ar  rcs $@  $<
+
+clean:
+	rm $(Log_library) $(log_objects) *.o *.a 
+
+.PHONY : install
+install: 
+	@echo Static Library: $(Log_library)

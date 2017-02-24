@@ -1,0 +1,2 @@
+core_lib_SOVERSION := 3.2.18.7034
+SOVERSION := 3.2.18.7034

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace>
+  <SubversionPath>
+    <![CDATA[X:\Product\WISE\3310\Agent\CAgentIoT_3.1\Library\Log\AdvLog\Tools\AdvLog\project]]>
+  </SubversionPath>
+  <FindInFilesMask>
+    <![CDATA[*.c;*.cpp;*.cxx;*.cc;*.h;*.hpp;*.inc;*.mm;*.m;*.xrc;*.xml]]>
+  </FindInFilesMask>
+</Workspace>

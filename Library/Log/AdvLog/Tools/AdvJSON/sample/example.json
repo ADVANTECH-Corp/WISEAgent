@@ -1,0 +1,77 @@
+{
+  "IoTGW": {
+
+		"WSN": {
+			"WSN0": {		    
+				"Info": {
+						"e": [{"n":"SenHubList","sv":"0000000EC6F0F830,0000000EC6F0F831","asm":"r"},
+									{"n":"Neighbor","sv":"0000000EC6F0F830","asm":"r"},									
+								  {"n":"Health","v":80,"asm":"r"},
+								  {"n":"Name","sv":"WSN0","asm":"r"},
+								  {"n":"sw","sv":"1.0.0.1","asm":"r"},
+								  {"n":"reset","bv":0,"asm":"rw"}],
+					  "bn":"Info"
+				},								
+			  "bn":"0000852CF4B7B0E8",
+			  "ver":1
+			}, 
+		
+			"WSN1": {
+				"Info": {
+					"e": [{"n":"SenHubList","sv":"0000000EC6F0F833","asm":"r"},
+								{"n":"Neighbor","sv":"0000000EC6F0F833","asm":"r"},		  
+						  	{"n":"Health","v":50,"asm":"r"},
+						  	{"n":"Name","sv":"WSN1","asm":"r"},
+						  	{"n":"sw","sv":"1.0.0.1","asm":"r"},
+						  	{"n":"reset","bv":0,"asm":"rw"}],
+					"bn":"Info"
+				},												
+			  "bn":"0000852CF4B7B0E7",
+			  "ver":1
+			},
+			
+			"bn":"WSN"
+		},
+
+		"Bt": {
+			"Bt0": {
+				"Info": {
+					"e": [{"n":"SenHubList","sv":"0000550EC6F0F832","asm":"r"},
+								{"n":"Topology","sv":"0-1","asm":"r"},		  
+						  	{"n":"Health","v":90,"asm":"r"},
+						  	{"n":"Name","sv":"Bt0","asm":"r"},
+						  	{"n":"sw","sv":"3.0.0.1","asm":"r"},
+						  	{"n":"reset","bv":0,"asm":"rw"}],
+					"bn":"Info"
+				},								
+			  "bn":"0000802CF4B7B028",
+			  "ver":1
+			}, 	
+			"bn":"Bt"
+		},
+
+		"Zigbee": {
+			"Zigbee0":{
+				"Info": {
+					"e": [{"n":"SenHubList","sv":"0000000EC6F0F888","asm":"r"},
+								{"n":"Topology","sv":"0-1","asm":"r"},		  
+						  	{"n":"Health","v":80,"asm":"r"},
+						  	{"n":"Name","sv":"Zigbee0","asm":"r"},
+						  	{"n":"sw","sv":"3.0.2.3","asm":"r"},
+						  	{"n":"reset","bv":0,"asm":"rw"}],
+					"bn":"Info"
+				},					
+			  "bn":"0000702CF4B7B077",
+			  "ver":1
+			}, 		
+			"bn":"Zigbee"
+		},
+			
+		"Info": {
+			"e": [{"n":"sw","sv":"1.0.0.2","asm":"r"}],
+			"bn":"Info"
+		},
+			                        
+    "ver": 1
+   }
+}
