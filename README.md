@@ -115,11 +115,6 @@ Plugins:
      Access Modbus Device with modbus tcp or RTU protocol and report to RMM Server.
 	 
 Decuments:
- doc\license:
-     	 
- doc\README:
-     document for this WISEAgent Framework.
-	 
  doc\WISE-PaaS RMM 3.1_WISE-Agent_Command_Format_DG_V1.1.pdf:
      document for WISE Agent Framework command format.
 	 
