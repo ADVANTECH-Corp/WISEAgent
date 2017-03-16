@@ -153,12 +153,3 @@ Decuments:
 
  # SUPPORT
  -------
-
- You might install it like this:
- In *.run
-	#sudo ./rmmagent-platform_name-version.run
-In *.tar.gz
-	#tar -zxf rmmagent-platform_name-version.run.tar.gz
-	# cd Wrapper
-	#sudo ./rmmagent-platform_name-version.run
- Please reference to install manuall to get operation commands. 
