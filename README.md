@@ -108,12 +108,6 @@ Plugins:
  Sample\Modbus_Handler:
      Network Monitor Handler for network status report.
 	 
- module\PowerOnOffHandler.so:
-     Power Control Handler for remote power control.
-	 
- module\ProcessorMonitorHandler.so:
-     Access Modbus Device with modbus tcp or RTU protocol and report to RMM Server.
-	 
 Decuments:
  doc\WISE-PaaS RMM 3.1_WISE-Agent_Command_Format_DG_V1.1.pdf:
      document for WISE Agent Framework command format.
