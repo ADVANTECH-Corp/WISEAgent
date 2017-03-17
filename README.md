@@ -108,6 +108,9 @@ Decuments:
 
 ## SUPPORT
 ----
+
+ * [Advantech IoT Developer Forum](http://iotforum.advantech.com/)
+ * [WISE Agent WIKI](http://ess-wiki.advantech.com.tw/view/WISE-Agent)
  
 ## License
 ----
