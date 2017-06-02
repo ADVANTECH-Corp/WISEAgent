@@ -73,7 +73,7 @@ Decuments:
 ## COMPILATION
 ----
 
- To compile this package under a Unix, user need install the following libraries:
+ * To compile this package under a Unix, user need install the following libraries:
    - libXml2-2.7.8
    - openssl-1.0.1h
    - curl-7.37.1
@@ -82,6 +82,19 @@ Decuments:
    - automake
    - make
    - libx86
+   
+ * Compile Procedures:
+   - cd Library/Log/AdvLog/
+   - autoreconf -if
+   - ./configure
+   - cd ../../..
+   - cd Library3rdParty/libmodbus-3.1.2/
+   - autoreconf -if
+   - ./configure
+   - make
+   - cd ../..
+   - make
+
   
 ## Hardware requirements
 ----
