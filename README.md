@@ -82,6 +82,19 @@ Decuments:
    - automake
    - make
    - libx86
+   
+ Compile Procedures:
+   >cd Library/Log/AdvLog/
+   >autoreconf -if
+   >./configure
+   >cd ../../..
+   >cd Library3rdParty/libmodbus-3.1.2/
+   >autoreconf -if
+   >./configure
+   >make
+   >cd ../..
+   >make
+
   
 ## Hardware requirements
 ----
