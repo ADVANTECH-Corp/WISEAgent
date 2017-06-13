@@ -83,7 +83,7 @@ Decuments:
    - make
    - libx86
    
- * Compile Procedures:
+ * Linux Build Procedure:
    - cd Library/Log/AdvLog/
    - autoreconf -if
    - ./configure
