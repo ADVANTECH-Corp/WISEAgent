@@ -258,7 +258,7 @@ AGENT_SEND_STATUS SAManager_SendCustMessage( HANDLE const handle, int enum_act, 
 
 	if(g_publishCB)
 	{
-		if(g_publishCB(topic, 0, 0, packet) == true)
+		if(g_publishCB(topic, 0, 0, packet) == 0)
 			result = cagent_success;
 		else
 			result = cagent_send_data_error;
@@ -331,6 +331,33 @@ susiaccess_packet_body_t * SAManager_WrapAutoReportPacket(Handler_info const * p
 	return packet;
 }
 
+void SAManager_Redirect(HANDLE const handle, susiaccess_packet_body_t * packet)
+{
+	struct samanager_topic_entry * topicentry = NULL;
+	Handler_info* plugin = NULL;
+	char* buff = NULL;
+
+	if(handle == NULL || packet == NULL)
+		return;
+
+	plugin = (Handler_info*)handle;
+
+	if(plugin->agentInfo == NULL)
+		return;
+
+	buff = pkg_parser_packet_print(packet);
+	if(buff)
+	{
+		topicentry = samanager_topic_find(plugin->Name);
+		
+		if(topicentry != NULL)
+		{
+			topicentry->callback_func(plugin->Name, buff, strlen(buff), NULL, NULL);
+		}
+		free(buff);
+	}
+}
+
 AGENT_SEND_STATUS SAManager_SendAutoReport( HANDLE const handle, 
 										  void const * const requestData, unsigned int const requestLen, 
 										  void *pRev1, void* pRev2 )
@@ -360,13 +387,16 @@ AGENT_SEND_STATUS SAManager_SendAutoReport( HANDLE const handle,
 
 	if(g_publishCB)
 	{
-		if(g_publishCB(topicStr, 0, 0, packet) == true)
+		if(g_publishCB(topicStr, 0, 0, packet) == 0)
 			result = cagent_success;
 		else
 			result = cagent_send_data_error;
 	}
 	else
 		result = cagent_callback_null;
+
+	SAManager_Redirect(handle, packet);
+
 	if(packet->content)
 		free(packet->content);
 	free(packet);
@@ -459,7 +489,7 @@ AGENT_SEND_STATUS SAManager_SendCapability( HANDLE const handle,
 	sprintf(topicStr, DEF_ACTIONREQ_TOPIC, plugin->agentInfo->devId);
 	if(g_publishCB)
 	{
-		if(g_publishCB(topicStr, 0, 0, packet) == true)
+		if(g_publishCB(topicStr, 0, 0, packet) == 0)
 			result = cagent_success;
 		else
 			result = cagent_send_data_error;
@@ -564,7 +594,7 @@ AGENT_SEND_STATUS SAManager_SendEventNotify( HANDLE const handle, HANDLER_NOTIFY
 	sprintf(topicStr, DEF_EVENTNOTIFY_TOPIC, plugin->agentInfo->devId);
 	if(g_publishCB)
 	{
-		if(g_publishCB(topicStr, 0, 0, packet) == true)
+		if(g_publishCB(topicStr, 0, 0, packet) == 0)
 			result = cagent_success;
 		else
 			result = cagent_send_data_error;

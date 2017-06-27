@@ -54,10 +54,11 @@
 #define MODBUS_SET_THR_REP                 "setThrRep"
 #define MODBUS_DEL_ALL_THR_REP             "delAllThrRep"
 #define MODBUS_THR_CHECK_STATUS            "thrCheckStatus"
-#define MODBUS_THR_CHECK_MSG               "thrCheckMsg"
+//#define MODBUS_THR_CHECK_MSG               "thrCheckMsg"
+#define MODBUS_THR_CHECK_MSG               "msg"
 
 #define MODBUS_JSON_ROOT_NAME              "susiCommData"
-#define MODBUS_THR                         "susictrlThr"
+#define MODBUS_THR                         "modbusThr"
 #define MODBUS_THR_DESC                    "desc"
 #define MODBUS_THR_ID                      "id"
 #define MODBUS_THR_MAX                     "max"

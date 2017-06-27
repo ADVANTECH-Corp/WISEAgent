@@ -10,6 +10,10 @@
 #include <time.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <float.h>
+#ifdef LUA
+#include <lua.hpp>
+#endif
 #include "wrapper.h"
 #include "pthread.h"
 #include "util_path.h"
@@ -41,6 +45,14 @@
 #define DEF_MODBUS_RTU		"Modbus_RTU"
 #define DEF_SIMULATOR_NAME	"Simulator"
 
+//Threshold
+#define MODBUS_SET_THR_REP                 "setThrRep"
+#define MODBUS_DEL_ALL_THR_REP             "delAllThrRep"
+#define MODBUS_THR_CHECK_STATUS            "thrCheckStatus"
+//#define MODBUS_THR_CHECK_MSG               "thrCheckMsg"
+#define MODBUS_THR_CHECK_MSG               "msg"
+
+
 //#define INI_PATH "\Modbus.ini"
 
 #define cagent_request_custom 2002
@@ -65,9 +77,7 @@ static int DeleteSensorInfoNodeWithID(sensor_info_list sensorInfoList, int id);
 static int DeleteAllSensorInfoNode(sensor_info_list sensorInfoList);
 static bool IsSensorInfoListEmpty(sensor_info_list sensorInfoList);
 //-----------------------------------------------------------------------------
-
-
-
+static double LuaConversion(double inputVal, char* strLua);
 
 //-----------------------------------------------------------------------------
 // Internal Prototypes:
@@ -106,6 +116,9 @@ static Handler_info  g_PluginInfo;
 static handler_context_t g_RetrieveContex;
 static handler_context_t g_AutoReportContex;
 static handler_context_t g_AutoUploadContex;
+static handler_context_t g_ThresholdSetContex;
+static handler_context_t g_ThresholdCheckContex;
+static handler_context_t g_ThresholdDeleteContex;
 //clock_t AutoUpload_start;
 //clock_t AutoUpload_continue;
 static HANDLER_THREAD_STATUS g_status = handler_status_no_init;
@@ -134,12 +147,15 @@ int Rev_Fail_Num=0;
 bool g_bRev_Fail=false;
 
 bool bConnectionFlag=false;
+pthread_mutex_t pModbusMux;
+pthread_mutex_t pModbusThresholdMux;
 bool bIsSimtor=false;
 bool bFind=false; //Find INI file
 int  iTCP_RTU=0;
 char Modbus_Protocol[20]="";
 char Device_Name[20]="";
 bool Modbus_Log=false; //Log
+int  Modbus_Interval=1; //Interval
 char *MRLog_path;
 char *MSLog_path;
 FILE *pMRLog=NULL;
@@ -188,6 +204,11 @@ bool Report_Reply_All=false;
 char **Report_Data_paths=NULL;
 
 cJSON *Report_item, *Report_it, *Report_js_name, *Report_first,*Report_second_interval,*Report_second,*Report_third,*Report_js_list;
+//-----------------------------------------------------------------------------
+// Threshold:
+//-----------------------------------------------------------------------------
+char *Threshold_Data=NULL;
+static modbus_threshold_list MODBUSthresholdList = NULL;
 
 //-----------------------------------------------------------------------------
 // Function:
@@ -526,6 +547,9 @@ bool read_INI_Platform(char *modulePath,char *iniPath)
 			strcpy(Modbus_Clent_IP,GetIniKeyString("Platform","ClientIP",iniPath));
 			Modbus_Client_Port=GetIniKeyInt("Platform","ClientPort",iniPath);
 			Modbus_UnitID=GetIniKeyInt("Platform","UnitID",iniPath);
+			Modbus_Interval=GetIniKeyInt("Platform","Interval",iniPath);
+			if(Modbus_Interval<=0)
+				Modbus_Interval=1;
 			if(GetIniKeyInt("Platform","Log",iniPath))
 				Modbus_Log=true;
 			else
@@ -542,6 +566,9 @@ bool read_INI_Platform(char *modulePath,char *iniPath)
 			Modbus_DataBits=GetIniKeyInt("Platform","DataBits",iniPath);
 			Modbus_StopBits=GetIniKeyInt("Platform","StopBits",iniPath);
 			Modbus_SlaveID=GetIniKeyInt("Platform","SlaveID",iniPath);
+			Modbus_Interval=GetIniKeyInt("Platform","Interval",iniPath);
+			if(Modbus_Interval<=0)
+				Modbus_Interval=1;
 			if(GetIniKeyInt("Platform","Log",iniPath))
 				Modbus_Log=true;
 			else
@@ -757,6 +784,14 @@ bool read_INI()
 										else
 											AI[i].sw_mode=0; 
 
+
+										pstr=strtok(NULL, ",");
+										if (pstr!=NULL)
+											strcpy(AI[i].conversion,pstr); // get the conversion
+										else
+											strcpy(AI[i].conversion,"");
+
+
 										if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4||AI[i].sw_mode==5||AI[i].sw_mode==6||AI[i].sw_mode==7||AI[i].sw_mode==8)
 											numberOfAI_Regs++;
 
@@ -843,6 +878,13 @@ bool read_INI()
 										else
 											AO[i].sw_mode=0; 
 
+										pstr=strtok(NULL, ",");
+										if (pstr!=NULL)
+											strcpy(AO[i].conversion,pstr); // get the conversion
+										else
+											strcpy(AO[i].conversion,"");
+
+
 										if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4||AO[i].sw_mode==5||AO[i].sw_mode==6||AO[i].sw_mode==7||AO[i].sw_mode==8)
 											numberOfAO_Regs++;
 										printf("%d. AO address: %d name: %s min: %lf max: %lf pre: %lf unit: %s sw_mode: %d\n",i,AO[i].address,AO[i].name,AO[i].min,AO[i].max,AO[i].precision,AO[i].unit,AO[i].sw_mode);
@@ -865,6 +907,88 @@ bool read_INI()
 
 }
 
+double LuaConversion(double inputVal, char* strLua)
+{
+	double retVal = inputVal;
+	char strLuaFunc[300];
+#ifdef LUA
+    lua_State *L = NULL;
+
+    //if (luaL_dostring(L, "function Convert(modbus_val) return modbus_val+1 end"))
+	//if (luaL_dostring(L, "function Convert(modbus_val) return math.pow(modbus_val,2) end"))
+	strcpy(strLuaFunc, "function Convert(modbus_val) return ");
+
+	char* pStrTemp = strchr(strLua, '\"');
+	if(pStrTemp != NULL)
+	{
+		if(strlen(strLua)<=2)
+			return retVal;
+		pStrTemp++;
+
+		char* pStrLuaScript = strtok(pStrTemp, "\"");
+		if(pStrLuaScript != NULL)
+		{
+			strcpy(strLua, strtok(pStrTemp, "\""));
+		}
+		else
+		{
+			return -1;
+		}
+	}
+
+	strcat(strLuaFunc, strLua);
+	strcat(strLuaFunc, " end");
+	
+	L = luaL_newstate();
+	luaL_openlibs(L);
+
+
+    if (luaL_dostring(L, strLuaFunc))
+	{
+        lua_close(L);
+        return retVal;
+    }
+
+    lua_getglobal(L, "Convert");
+    lua_pushnumber(L, inputVal);
+    lua_call(L, 1, 1);
+
+	int iLuaType = lua_type(L,-1);
+	switch(iLuaType)
+	{
+	case LUA_TNIL:
+		retVal = lua_tointeger(L, -1);
+		printf("Result: %i\n", retVal);
+		break;
+
+	case LUA_TBOOLEAN:
+		break;
+
+	case LUA_TLIGHTUSERDATA:
+		break;
+
+	case LUA_TNUMBER:
+		retVal = lua_tonumber(L, -1);
+		printf("Result: %f\n", retVal);
+		break;
+
+	case LUA_TSTRING:
+		break;
+	case LUA_TTABLE:
+		break;
+	case LUA_TFUNCTION:
+		break;
+	case LUA_TUSERDATA:
+		break;
+	case LUA_TTHREAD: 
+		break;
+	default:
+		break;
+	}
+    lua_close(L); //close Lua state
+#endif
+    return retVal;
+}
 
 //Prepare to Upload Data
 void UpDataPrepare(WISE_Data *Data, bool bUAI_AO, int *AIORcur, bool ret)	//DI,DO already keep the latest data,so dont have to take care here.
@@ -1099,63 +1223,73 @@ int DownDataPrepare(WISE_Data *Data,float fv,uint32_t uiv,int iv, bool ret)
 	}
 	else
 	{
+		pthread_mutex_lock(&pModbusMux);
 		switch(Data->sw_mode)
 		{
 			case 1:
 				custom_set_float(fv,AO_Set_Regs_temp_Ary);
 				rc=modbus_write_register(ctx,Data->address,AO_Set_Regs_temp_Ary[0]);
 				rc=modbus_write_register(ctx,Data->address+1,AO_Set_Regs_temp_Ary[1]);
-				return rc;
 				break;
 			case 2:
 				custom_set_float_dcba(fv,AO_Set_Regs_temp_Ary);
 				rc=modbus_write_register(ctx,Data->address,AO_Set_Regs_temp_Ary[0]);
 				rc=modbus_write_register(ctx,Data->address+1,AO_Set_Regs_temp_Ary[1]);
-				return rc;
 				break;
 			case 3:
 				custom_set_float_badc(fv,AO_Set_Regs_temp_Ary);
 				rc=modbus_write_register(ctx,Data->address,AO_Set_Regs_temp_Ary[0]);
 				rc=modbus_write_register(ctx,Data->address+1,AO_Set_Regs_temp_Ary[1]);
-				return rc;
 				break;
 			case 4:
 				custom_set_float_cdab(fv,AO_Set_Regs_temp_Ary);
 				rc=modbus_write_register(ctx,Data->address,AO_Set_Regs_temp_Ary[0]);
 				rc=modbus_write_register(ctx,Data->address+1,AO_Set_Regs_temp_Ary[1]);
-				return rc;
 				break;
 			case 5:
 				custom_set_unsigned_int(uiv,AO_Set_Regs_temp_Ary);
 				rc=modbus_write_register(ctx,Data->address,AO_Set_Regs_temp_Ary[0]);
 				rc=modbus_write_register(ctx,Data->address+1,AO_Set_Regs_temp_Ary[1]);
-				return rc;
 				break;
 			case 6:
 				custom_set_unsigned_int_cdab(uiv,AO_Set_Regs_temp_Ary);
 				rc=modbus_write_register(ctx,Data->address,AO_Set_Regs_temp_Ary[0]);
-				rc=modbus_write_register(ctx,Data->address+1,AO_Set_Regs_temp_Ary[1]);
-				return rc;
+				rc=modbus_write_register(ctx,Data->address+1,AO_Set_Regs_temp_Ary[1]);;
 				break;
 			case 7:
 				custom_set_int(iv,AO_Set_Regs_temp_Ary);
 				rc=modbus_write_register(ctx,Data->address,AO_Set_Regs_temp_Ary[0]);
 				rc=modbus_write_register(ctx,Data->address+1,AO_Set_Regs_temp_Ary[1]);
-				return rc;
 				break;
 			case 8:
 				custom_set_int_cdab(iv,AO_Set_Regs_temp_Ary);
 				rc=modbus_write_register(ctx,Data->address,AO_Set_Regs_temp_Ary[0]);
 				rc=modbus_write_register(ctx,Data->address+1,AO_Set_Regs_temp_Ary[1]);
-				return rc;
 				break;
 			default:
-				return modbus_write_register(ctx,Data->address,fv/Data->precision);
-
+				rc=modbus_write_register(ctx,Data->address,fv/Data->precision);
 		}
-
+		/*TODO: Add access delay  usleep(2000*1000);*/
+		pthread_mutex_unlock(&pModbusMux);
+		return rc;
 	}
 
+
+}
+//Assemble Data
+void AssembleData(){
+
+	int AIRcur=0;
+	int AORcur=0;
+	bool bUAI_AO=true;
+	for(int i=0;i<numberOfAI;i++){
+		UpDataPrepare(&AI[i],bUAI_AO,&AIRcur,g_bRetrieve);
+	}
+
+	bUAI_AO=false;
+	for(int i=0;i<numberOfAO;i++){
+		UpDataPrepare(&AO[i],bUAI_AO,&AORcur,g_bRetrieve);
+	}
 
 }
 /*
@@ -1360,10 +1494,7 @@ MSG_CLASSIFY_T * CreateCapability()
 						}
 						else
 						{
-							if(!g_bRetrieve)
-								IoT_SetBoolValue(attr,false,mode);
-							else
-								IoT_SetBoolValue(attr,true,mode);
+							IoT_SetBoolValue(attr,bConnectionFlag,mode);
 						}
 								
 					}	
@@ -1514,7 +1645,15 @@ MSG_CLASSIFY_T * CreateCapability()
 									UpDataPrepare(&AI[i],bUAI_AO,&AIRcur,g_bRetrieve);
 									if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4)
 									{	
-										IoT_SetDoubleValueWithMaxMin(attr,AI[i].fv,mode,AI[i].max,AI[i].min,AI[i].unit);
+										IoT_SetDoubleValueWithMaxMin(attr,AI[i].fv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									}
+									else if(AI[i].sw_mode==5||AI[i].sw_mode==6)
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AI[i].uiv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									}
+									else if(AI[i].sw_mode==7||AI[i].sw_mode==8)
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AI[i].iv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
 									}
 									else
 									{
@@ -1565,7 +1704,15 @@ MSG_CLASSIFY_T * CreateCapability()
 									UpDataPrepare(&AO[i],bUAI_AO,&AORcur,g_bRetrieve);
 									if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4)
 									{	
-										IoT_SetDoubleValueWithMaxMin(attr,AO[i].fv,mode,AO[i].max,AO[i].min,AO[i].unit);
+										IoT_SetDoubleValueWithMaxMin(attr,AO[i].fv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									}
+									else if(AO[i].sw_mode==5||AO[i].sw_mode==6)
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AO[i].uiv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									}
+									else if(AO[i].sw_mode==7||AO[i].sw_mode==8)
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AO[i].iv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
 									}
 									else
 									{
@@ -1600,12 +1747,19 @@ bool Modbus_Connect()
 	{	
 		ModbusLog(g_loghandle, Normal, "Modbus Connection established!!");
 
+		pthread_mutex_init(&pModbusMux, NULL);
+		pthread_mutex_init(&pModbusThresholdMux, NULL);
+
 		bConnectionFlag=true;
 		if(iTCP_RTU==0)
 			modbus_set_slave(ctx, Modbus_UnitID);
-		else if(iTCP_RTU==1)
+		else if(iTCP_RTU==1){
 			modbus_set_slave(ctx, Modbus_SlaveID);
-		else 
+	                int ret = modbus_rtu_set_serial_mode(ctx, 1);
+	                if (ret != 0)
+	                      printf("set serial mode failed\n");
+
+		}else 
 			;	//Not TCP or RTU
 		return true;
 	}
@@ -1615,6 +1769,8 @@ bool Modbus_Connect()
 //Disconnect a Modbus Connection
 bool Modbus_Disconnect()
 {
+	pthread_mutex_destroy(&pModbusMux);
+	bConnectionFlag=false;
 	modbus_close(ctx);
 	ModbusLog(g_loghandle, Warning, "Modbus Disconnection!!");
 	return false;
@@ -1636,6 +1792,8 @@ bool Modbus_Rev()
 
 	if(bFCon && g_bRev_Fail)
 		Rev_Fail_Num++;
+	else
+		Rev_Fail_Num=0; 
 	
 	//------------------floatint test case   10.565(abcd) 0.033731(dcba) refer to float_sample.txt
 	/*uint16_t a=16681;		
@@ -1649,7 +1807,7 @@ bool Modbus_Rev()
 
 	g_bRev_Fail=false;
 
-	printf("Rev_Fail_Num : %d\n",Rev_Fail_Num);
+	printf("Rev_Fail_Num : %d - %d\n",Rev_Fail_Num, time(NULL));
 	
 	if(Rev_Fail_Num>5) //reconnect --> continual 6 times lost connection  
 	{		
@@ -1668,7 +1826,12 @@ bool Modbus_Rev()
 			char tmp[50];
 			DI[i].bRevFin=false;	//not in use actually
 			if(bConnectionFlag)
+			{
+				pthread_mutex_lock(&pModbusMux);
 				ret = modbus_read_input_bits(ctx, DI[i].address, 1, (DI_Bits+i));
+				/*TODO: Add access delay  usleep(2000*1000);*/
+				pthread_mutex_unlock(&pModbusMux);
+			}
 			else
 				ret = -1;
 			if (ret == -1) {
@@ -1690,6 +1853,7 @@ bool Modbus_Rev()
 				DI[i].bRevFin=true;	//not in use actually
 				//printf("DI_Bits[%d] : %d\n",i,DI_Bits[i]);
 			}
+			//sleep(2);
 		}
 
 	}
@@ -1701,7 +1865,12 @@ bool Modbus_Rev()
 			char tmp[50];
 			DO[i].bRevFin=false;	//not in use actually
 			if(bConnectionFlag)
+			{
+				pthread_mutex_lock(&pModbusMux);
 				ret = modbus_read_bits(ctx, DO[i].address, 1, (DO_Bits+i));
+				/*TODO: Add access delay  usleep(2000*1000);*/
+				pthread_mutex_unlock(&pModbusMux);
+			}
 			else
 				ret = -1;
 			if (ret == -1) {
@@ -1723,6 +1892,7 @@ bool Modbus_Rev()
 				DO[i].bRevFin=true;	//not in use actually
 				//printf("DO_Bits[%d] : %d\n",i,DO_Bits[i]);
 			}
+			//sleep(2);
 		}
 
 	}
@@ -1738,7 +1908,12 @@ bool Modbus_Rev()
 			{				
 
 				if(bConnectionFlag)
+				{
+					pthread_mutex_lock(&pModbusMux);
 					ret = modbus_read_input_registers(ctx, AI[i].address, 2, (AI_Regs+AIRRevcur));
+					/*TODO: Add access delay  usleep(2000*1000);*/
+					pthread_mutex_unlock(&pModbusMux);
+				}
 				else
 					ret = -1;
 				if (ret == -1) {
@@ -1758,7 +1933,12 @@ bool Modbus_Rev()
 				}
 /*
 				if(bConnectionFlag)
+				{
+					pthread_mutex_lock(&pModbusMux);
 					ret = modbus_read_input_registers(ctx, AI[i].address+1, 1, (AI_Regs+AIRRevcur+1));
+				//TODO: Add access delay  usleep(2000*1000);
+					pthread_mutex_unlock(&pModbusMux);
+				}
 				else
 					ret = -1;
 				if (ret == -1) {
@@ -1775,7 +1955,12 @@ bool Modbus_Rev()
 			else
 			{
 				if(bConnectionFlag)
+				{
+					pthread_mutex_lock(&pModbusMux);
 					ret = modbus_read_input_registers(ctx, AI[i].address, 1, (AI_Regs+AIRRevcur));
+					/*TODO: Add access delay  usleep(2000*1000);*/
+					pthread_mutex_unlock(&pModbusMux);
+				}
 				else
 					ret = -1;
 				if (ret == -1) {
@@ -1798,7 +1983,7 @@ bool Modbus_Rev()
 				AIRRevcur++;
 				AI[i].bRevFin=true;
 			}
-
+			//sleep(2);
 		}
 
 	}
@@ -1813,7 +1998,12 @@ bool Modbus_Rev()
 			if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4||AO[i].sw_mode==5||AO[i].sw_mode==6||AO[i].sw_mode==7||AO[i].sw_mode==8)
 			{			
 				if(bConnectionFlag)
+				{
+					pthread_mutex_lock(&pModbusMux);
 					ret = modbus_read_registers(ctx, AO[i].address, 2, (AO_Regs+AORRevcur));
+					/*TODO: Add access delay  usleep(2000*1000);*/
+					pthread_mutex_unlock(&pModbusMux);
+				}
 				else
 					ret = -1;
 				if (ret == -1) {
@@ -1838,7 +2028,12 @@ bool Modbus_Rev()
 			{
 				
 				if(bConnectionFlag)
+				{
+					pthread_mutex_lock(&pModbusMux);
 					ret = modbus_read_registers(ctx, AO[i].address, 1, (AO_Regs+AORRevcur));
+					/*TODO: Add access delay  usleep(2000*1000);*/
+					pthread_mutex_unlock(&pModbusMux);
+				}
 				else
 					ret = -1;
 				if (ret == -1) {
@@ -1861,7 +2056,7 @@ bool Modbus_Rev()
 				AORRevcur++;
 				AO[i].bRevFin=true;
 			}
-
+			//sleep(2);
 		}
 	}
 
@@ -2461,7 +2656,7 @@ static void GetSensorsDataEx(sensor_info_list sensorInfoList, char * pSessionID)
 																													{
 																														attr = MSG_AddJSONAttribute(pSensor, "sv");
 																														if(attr)
-																															if(MSG_SetBoolValue(attr, true, "r"))
+																															if(MSG_SetBoolValue(attr, bConnectionFlag, "r"))
 																															{	attr = MSG_AddJSONAttribute(pSensor, "StatusCode");
 																																if(attr)
 																																	MSG_SetDoubleValue(attr, IOT_SGRC_SUCCESS,"r", NULL);																			
@@ -3034,9 +3229,11 @@ static void SetSensorsDataEx(sensor_info_list sensorInfoList, char * pSessionID)
 																																							{
 																																								if(strcmp(DO[i].name,sensors[count].name)==0)
 																																								{	
-
-																																									int ret=modbus_write_bit(ctx,DO[i].address,bVal);
-
+																																									int ret = -1;
+																																									pthread_mutex_lock(&pModbusMux);
+																																									ret=modbus_write_bit(ctx,DO[i].address,bVal);
+																																									/*TODO: Add access delay  usleep(2000*1000);*/
+																																									pthread_mutex_unlock(&pModbusMux);
 																																									if(ret!=-1)
 																																									{
 																																										attr = MSG_AddJSONAttribute(pSensor, "sv");
@@ -3056,7 +3253,6 @@ static void SetSensorsDataEx(sensor_info_list sensorInfoList, char * pSessionID)
 																																											MSG_SetDoubleValue(attr, IOT_SGRC_FAIL,"rw", NULL);	
 
 																																									}
-
 																																								}
 																																								if(i==numberOfDO)
 																																								{	
@@ -3323,10 +3519,7 @@ static void UploadAllSensorsData(bool bReport_Upload,void *args)
 				else
 				{
 					if(attr)
-						if(!g_bRetrieve)
-							IoT_SetBoolValue(attr,false,mode);
-						else
-							IoT_SetBoolValue(attr,true,mode);
+						IoT_SetBoolValue(attr,bConnectionFlag,mode);
 				}	
 			}
 			classify=IoT_FindGroup(g_Capability,"Discrete Inputs");		
@@ -3426,7 +3619,9 @@ static void UploadAllSensorsData(bool bReport_Upload,void *args)
 									continue;
 							}
 							if(attr)
+							{
 								IoT_SetDoubleValueWithMaxMin(attr,AI_Regs[i]*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+							}
 						}
 						else
 						{
@@ -3435,21 +3630,48 @@ static void UploadAllSensorsData(bool bReport_Upload,void *args)
 							if(attr)
 							{	
 								UpDataPrepare(&AI[i],bUAI_AO,&AIRcur,g_bRetrieve);
-								if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4)
-								{	
-									IoT_SetDoubleValueWithMaxMin(attr,AI[i].fv,mode,AI[i].max,AI[i].min,AI[i].unit);
-								}
-								else if(AI[i].sw_mode==5||AI[i].sw_mode==6)
+
+								if(strcmp(AI[i].conversion, "") == 0)
 								{
-									IoT_SetDoubleValueWithMaxMin(attr,AI[i].uiv,mode,AI[i].max,AI[i].min,AI[i].unit);
-								}
-								else if(AI[i].sw_mode==7||AI[i].sw_mode==8)
-								{
-									IoT_SetDoubleValueWithMaxMin(attr,AI[i].iv,mode,AI[i].max,AI[i].min,AI[i].unit);
+									if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4)
+									{	
+										IoT_SetDoubleValueWithMaxMin(attr,AI[i].fv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									}
+									else if(AI[i].sw_mode==5||AI[i].sw_mode==6)
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AI[i].uiv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									}
+									else if(AI[i].sw_mode==7||AI[i].sw_mode==8)
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AI[i].iv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									}
+									else
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AI[i].Regs*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									}
 								}
 								else
 								{
-									IoT_SetDoubleValueWithMaxMin(attr,AI[i].Regs*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4)
+									{
+										float valConv = LuaConversion(AI[i].fv, AI[i].conversion);
+										IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									}
+									else if(AI[i].sw_mode==5||AI[i].sw_mode==6)
+									{
+										uint32_t valConv = LuaConversion(AI[i].uiv, AI[i].conversion);
+										IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									}
+									else if(AI[i].sw_mode==7||AI[i].sw_mode==8)
+									{
+										int valConv = LuaConversion(AI[i].iv, AI[i].conversion);
+										IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									}
+									else
+									{
+										double valConv = LuaConversion(AI[i].Regs, AI[i].conversion);
+										IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+									}
 								}
 							}	
 						}
@@ -3486,7 +3708,9 @@ static void UploadAllSensorsData(bool bReport_Upload,void *args)
 									continue;
 							}
 							if(attr)
+							{
 								IoT_SetDoubleValueWithMaxMin(attr,AO_Regs[i]*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+							}
 						}
 						else
 						{
@@ -3495,21 +3719,48 @@ static void UploadAllSensorsData(bool bReport_Upload,void *args)
 							if(attr)
 							{	
 								UpDataPrepare(&AO[i],bUAI_AO,&AORcur,g_bRetrieve);
-								if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4)
-								{	
-									IoT_SetDoubleValueWithMaxMin(attr,AO[i].fv,mode,AO[i].max,AO[i].min,AO[i].unit);
-								}
-								else if(AO[i].sw_mode==5||AO[i].sw_mode==6)
+
+								if(strcmp(AO[i].conversion, "") == 0)
 								{
-									IoT_SetDoubleValueWithMaxMin(attr,AO[i].uiv,mode,AO[i].max,AO[i].min,AO[i].unit);
-								}
-								else if(AO[i].sw_mode==7||AO[i].sw_mode==8)
-								{
-									IoT_SetDoubleValueWithMaxMin(attr,AO[i].iv,mode,AO[i].max,AO[i].min,AO[i].unit);
+									if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4)
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AO[i].fv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									}
+									else if(AO[i].sw_mode==5||AO[i].sw_mode==6)
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AO[i].uiv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									}
+									else if(AO[i].sw_mode==7||AO[i].sw_mode==8)
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AO[i].iv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									}
+									else
+									{
+										IoT_SetDoubleValueWithMaxMin(attr,AO[i].Regs*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									}
 								}
 								else
 								{
-									IoT_SetDoubleValueWithMaxMin(attr,AO[i].Regs*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4)
+									{
+										float valConv = LuaConversion(AO[i].fv, AO[i].conversion);
+										IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									}
+									else if(AO[i].sw_mode==5||AO[i].sw_mode==6)
+									{
+										uint32_t valConv = LuaConversion(AO[i].uiv, AO[i].conversion);
+										IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									}
+									else if(AO[i].sw_mode==7||AO[i].sw_mode==8)
+									{
+										int valConv = LuaConversion(AO[i].iv, AO[i].conversion);
+										IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									}
+									else
+									{
+										double valConv = LuaConversion(AO[i].Regs, AO[i].conversion);
+										IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+									}
 								}
 							}	
 						}
@@ -3723,10 +3974,7 @@ static void UploadSensorsDataEx(char **Data_paths, int Data_num, bool Reply_All,
 																											else
 																											{
 																												if(attr)
-																													if(!g_bRetrieve)
-																														IoT_SetBoolValue(attr,false,mode);
-																													else
-																														IoT_SetBoolValue(attr,true,mode);
+																													IoT_SetBoolValue(attr,bConnectionFlag,mode);
 																											}
 	
 																								}
@@ -3820,7 +4068,9 @@ static void UploadSensorsDataEx(char **Data_paths, int Data_num, bool Reply_All,
 																														}
 																														attr = IoT_AddSensorNode(myGroup, AI[i].name);
 																														if(attr)
+																														{
 																															IoT_SetDoubleValueWithMaxMin(attr,AI_Regs[i]*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																														}
 																													}
 																													else
 																													{
@@ -3829,25 +4079,51 @@ static void UploadSensorsDataEx(char **Data_paths, int Data_num, bool Reply_All,
 																														attr = IoT_AddSensorNode(myGroup, AI[i].name);
 																														if(attr)
 																														{	
-																															
 																															UpDataPrepare(&AI[i],bUAI_AO,&AIRcur,g_bRetrieve);
-																															if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4)
-																															{	
-																																IoT_SetDoubleValueWithMaxMin(attr,AI[i].fv,mode,AI[i].max,AI[i].min,AI[i].unit);
-																															}
-																															else if(AI[i].sw_mode==5||AI[i].sw_mode==6)
-																															{	
-																																IoT_SetDoubleValueWithMaxMin(attr,AI[i].uiv,mode,AI[i].max,AI[i].min,AI[i].unit);
-																															}
-																															else if(AI[i].sw_mode==7||AI[i].sw_mode==8)
-																															{	
-																																IoT_SetDoubleValueWithMaxMin(attr,AI[i].iv,mode,AI[i].max,AI[i].min,AI[i].unit);
+
+																															if(strcmp(AI[i].conversion, "") == 0)
+																															{
+																																if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4)
+																																{
+																																	IoT_SetDoubleValueWithMaxMin(attr,AI[i].fv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																																}
+																																else if(AI[i].sw_mode==5||AI[i].sw_mode==6)
+																																{
+																																	IoT_SetDoubleValueWithMaxMin(attr,AI[i].uiv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																																}
+																																else if(AI[i].sw_mode==7||AI[i].sw_mode==8)
+																																{
+																																	IoT_SetDoubleValueWithMaxMin(attr,AI[i].iv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																																}
+																																else
+																																{
+																																	IoT_SetDoubleValueWithMaxMin(attr,AI[i].Regs*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																																}
 																															}
 																															else
 																															{
-																																IoT_SetDoubleValueWithMaxMin(attr,AI[i].Regs*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																																if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4)
+																																{
+																																	float valConv = LuaConversion(AI[i].fv, AI[i].conversion);
+																																	IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																																}
+																																else if(AI[i].sw_mode==5||AI[i].sw_mode==6)
+																																{
+																																	uint32_t valConv = LuaConversion(AI[i].uiv, AI[i].conversion);
+																																	IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																																}
+																																else if(AI[i].sw_mode==7||AI[i].sw_mode==8)
+																																{
+																																	int valConv = LuaConversion(AI[i].iv, AI[i].conversion);
+																																	IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																																}
+																																else
+																																{
+																																	double valConv = LuaConversion(AI[i].Regs, AI[i].conversion);
+																																	IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																																}
 																															}
-																														}
+																														}	
 																													}
 																												}
 
@@ -3880,7 +4156,10 @@ static void UploadSensorsDataEx(char **Data_paths, int Data_num, bool Reply_All,
 																													}
 																													attr = IoT_AddSensorNode(myGroup, AO[i].name);
 																													if(attr)
+																													{
 																														IoT_SetDoubleValueWithMaxMin(attr,AO_Regs[i]*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+
+																													}
 
 																												}
 																												else
@@ -3891,21 +4170,48 @@ static void UploadSensorsDataEx(char **Data_paths, int Data_num, bool Reply_All,
 																													if(attr)
 																													{	
 																														UpDataPrepare(&AO[i],bUAI_AO,&AORcur,g_bRetrieve);
-																														if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4)
-																														{	
-																															IoT_SetDoubleValueWithMaxMin(attr,AO[i].fv,mode,AO[i].max,AO[i].min,AO[i].unit);
-																														}
-																														else if(AO[i].sw_mode==5||AO[i].sw_mode==6)
-																														{	
-																															IoT_SetDoubleValueWithMaxMin(attr,AO[i].uiv,mode,AO[i].max,AO[i].min,AO[i].unit);
-																														}
-																														else if(AO[i].sw_mode==7||AO[i].sw_mode==8)
-																														{	
-																															IoT_SetDoubleValueWithMaxMin(attr,AO[i].iv,mode,AO[i].max,AO[i].min,AO[i].unit);
+
+																														if(strcmp(AO[i].conversion, "") == 0)
+																														{
+																															if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4)
+																															{
+																																IoT_SetDoubleValueWithMaxMin(attr,AO[i].fv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																															}
+																															else if(AO[i].sw_mode==5||AO[i].sw_mode==6)
+																															{
+																																IoT_SetDoubleValueWithMaxMin(attr,AO[i].uiv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																															}
+																															else if(AO[i].sw_mode==7||AO[i].sw_mode==8)
+																															{
+																																IoT_SetDoubleValueWithMaxMin(attr,AO[i].iv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																															}
+																															else
+																															{
+																																IoT_SetDoubleValueWithMaxMin(attr,AO[i].Regs*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																															}
 																														}
 																														else
 																														{
-																															IoT_SetDoubleValueWithMaxMin(attr,AO[i].Regs*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																															if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4)
+																															{
+																																float valConv = LuaConversion(AO[i].fv, AO[i].conversion);
+																																IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																															}
+																															else if(AO[i].sw_mode==5||AO[i].sw_mode==6)
+																															{
+																																uint32_t valConv = LuaConversion(AO[i].uiv, AO[i].conversion);
+																																IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																															}
+																															else if(AO[i].sw_mode==7||AO[i].sw_mode==8)
+																															{
+																																int valConv = LuaConversion(AO[i].iv, AO[i].conversion);
+																																IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																															}
+																															else
+																															{
+																																double valConv = LuaConversion(AO[i].Regs, AO[i].conversion);
+																																IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																															}
 																														}
 																													}
 																												}
@@ -4033,10 +4339,7 @@ static void UploadSensorsDataEx(char **Data_paths, int Data_num, bool Reply_All,
 																									else
 																									{
 																										if(attr)
-																											if(!g_bRetrieve)
-																												IoT_SetBoolValue(attr,false,mode);
-																											else
-																												IoT_SetBoolValue(attr,true,mode);
+																											IoT_SetBoolValue(attr,bConnectionFlag,mode);
 																									}
 																						}
 																		
@@ -4137,23 +4440,52 @@ static void UploadSensorsDataEx(char **Data_paths, int Data_num, bool Reply_All,
 																								if(attr)
 																								{	
 																									UpDataPrepare(&AI[i],bUAI_AO,&AIRcur,g_bRetrieve);
-																									if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4)
-																									{	
-																										IoT_SetDoubleValueWithMaxMin(attr,AI[i].fv,mode,AI[i].max,AI[i].min,AI[i].unit);
-																									}
-																									else if(AI[i].sw_mode==5||AI[i].sw_mode==6)
-																									{	
-																										IoT_SetDoubleValueWithMaxMin(attr,AI[i].uiv,mode,AI[i].max,AI[i].min,AI[i].unit);
-																									}
-																									else if(AI[i].sw_mode==7||AI[i].sw_mode==8)
-																									{	
-																										IoT_SetDoubleValueWithMaxMin(attr,AI[i].iv,mode,AI[i].max,AI[i].min,AI[i].unit);
+
+																									if(strcmp(AI[i].conversion, "") == 0)
+																									{
+																										UpDataPrepare(&AI[i],bUAI_AO,&AIRcur,g_bRetrieve);
+																										if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4)
+																										{	
+																											IoT_SetDoubleValueWithMaxMin(attr,AI[i].fv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																										}
+																										else if(AI[i].sw_mode==5||AI[i].sw_mode==6)
+																										{	
+																											IoT_SetDoubleValueWithMaxMin(attr,AI[i].uiv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																										}
+																										else if(AI[i].sw_mode==7||AI[i].sw_mode==8)
+																										{	
+																											IoT_SetDoubleValueWithMaxMin(attr,AI[i].iv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																										}
+																										else
+																										{
+																											IoT_SetDoubleValueWithMaxMin(attr,AI[i].Regs*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																										}
 																									}
 																									else
 																									{
-																										IoT_SetDoubleValueWithMaxMin(attr,AI[i].Regs*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																										if(AI[i].sw_mode==1||AI[i].sw_mode==2||AI[i].sw_mode==3||AI[i].sw_mode==4)
+																										{
+																											float valConv = LuaConversion(AI[i].fv, AI[i].conversion);
+																											IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																										}
+																										else if(AI[i].sw_mode==5||AI[i].sw_mode==6)
+																										{
+																											uint32_t valConv = LuaConversion(AI[i].uiv, AI[i].conversion);
+																											IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																										}
+																										else if(AI[i].sw_mode==7||AI[i].sw_mode==8)
+																										{
+																											int valConv = LuaConversion(AI[i].iv, AI[i].conversion);
+																											IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																										}
+																										else
+																										{
+																											double valConv = LuaConversion(AI[i].Regs, AI[i].conversion);
+																											IoT_SetDoubleValueWithMaxMin(attr,valConv*AI[i].precision,mode,AI[i].max,AI[i].min,AI[i].unit);
+																										}
 																									}
 																								}
+
 																						}
 
 																					}
@@ -4192,25 +4524,52 @@ static void UploadSensorsDataEx(char **Data_paths, int Data_num, bool Reply_All,
 																								}
 																								attr = IoT_AddSensorNode(myGroup, AO[i].name);
 																								if(attr)
-																								{		
+																								{	
 																									UpDataPrepare(&AO[i],bUAI_AO,&AORcur,g_bRetrieve);
-																									if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4)
-																									{	
-																										IoT_SetDoubleValueWithMaxMin(attr,AO[i].fv,mode,AO[i].max,AO[i].min,AO[i].unit);
+
+																									if(strcmp(AO[i].conversion, "") == 0)
+																									{								
+																										if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4)
+																										{	
+																											IoT_SetDoubleValueWithMaxMin(attr,AO[i].fv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																										}
+																										else if(AO[i].sw_mode==5||AO[i].sw_mode==6)
+																										{	
+																											IoT_SetDoubleValueWithMaxMin(attr,AO[i].uiv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																										}
+																										else if(AO[i].sw_mode==7||AO[i].sw_mode==8)
+																										{	
+																											IoT_SetDoubleValueWithMaxMin(attr,AO[i].iv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																										}																									
+																										else
+																										{
+																											IoT_SetDoubleValueWithMaxMin(attr,AO[i].Regs*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																										}
 																									}
-																									else if(AO[i].sw_mode==5||AO[i].sw_mode==6)
-																									{	
-																										IoT_SetDoubleValueWithMaxMin(attr,AO[i].uiv,mode,AO[i].max,AO[i].min,AO[i].unit);
-																									}
-																									else if(AO[i].sw_mode==7||AO[i].sw_mode==8)
-																									{	
-																										IoT_SetDoubleValueWithMaxMin(attr,AO[i].iv,mode,AO[i].max,AO[i].min,AO[i].unit);
-																									}																									
 																									else
 																									{
-																										IoT_SetDoubleValueWithMaxMin(attr,AO[i].Regs*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																										if(AO[i].sw_mode==1||AO[i].sw_mode==2||AO[i].sw_mode==3||AO[i].sw_mode==4)
+																										{	
+																											float valConv = LuaConversion(AO[i].fv, AO[i].conversion);
+																											IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																										}
+																										else if(AO[i].sw_mode==5||AO[i].sw_mode==6)
+																										{
+																											uint32_t valConv = LuaConversion(AO[i].uiv, AO[i].conversion);
+																											IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																										}
+																										else if(AO[i].sw_mode==7||AO[i].sw_mode==8)
+																										{
+																											int valConv = LuaConversion(AO[i].iv, AO[i].conversion);
+																											IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																										}
+																										else
+																										{
+																											double valConv = LuaConversion(AO[i].Regs, AO[i].conversion);
+																											IoT_SetDoubleValueWithMaxMin(attr,valConv*AO[i].precision,mode,AO[i].max,AO[i].min,AO[i].unit);
+																										}
 																									}
-																								}
+																								}	
 																						}
 
 																					}
@@ -4296,6 +4655,1134 @@ static void UploadSensorsDataEx(char **Data_paths, int Data_num, bool Reply_All,
 		IoT_ReleaseAll(myUpload);
 
 }
+
+//---------------------------------------------------------------------------------------------------------------------
+//--------------------------------------------------Threshold----------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------------
+static void* ThresholdDeleteThreadStart(void *args);
+static void* ThresholdSetThreadStart(void *args);
+//-------------------------Deletion Part------------------------
+int Parser_PackDelAllThrRep(char * repStr, char ** outputStr)
+{
+	char * out = NULL;
+	int outLen = 0;
+	cJSON *pSUSICommDataItem = NULL;
+	if(repStr == NULL || outputStr == NULL) return outLen;
+	pSUSICommDataItem = cJSON_CreateObject();
+
+	cJSON_AddStringToObject(pSUSICommDataItem, MODBUS_DEL_ALL_THR_REP, repStr);
+
+	out = cJSON_PrintUnformatted(pSUSICommDataItem);
+	outLen = strlen(out) + 1;
+	*outputStr = (char *)(malloc(outLen));
+	memset(*outputStr, 0, outLen);
+	strcpy(*outputStr, out);
+	cJSON_Delete(pSUSICommDataItem);	
+	printf("%s\n",out);	
+	free(out);
+	return outLen;
+}
+static void ModbusWhenDelThrCheckNormal(modbus_threshold_list thrItemList, char ** checkMsg, unsigned int bufLen)
+{
+	if(NULL == thrItemList ||NULL == (char*)(*checkMsg)) return;
+	{
+		modbus_threshold_list curThrItemList = thrItemList;
+		modbus_threshold_node * curThrItemNode = curThrItemList->next;
+		char tmpMsg[256] = {0};
+		while(curThrItemNode)
+		{
+			memset(tmpMsg, 0, sizeof(tmpMsg));
+			if(curThrItemNode->info.isEnable && !curThrItemNode->info.isNormal)
+			{
+				curThrItemNode->info.isNormal = true;
+				sprintf(tmpMsg, "%s %s", curThrItemNode->info.name,DEF_NOR_EVENT_STR);
+			}
+
+			if(strlen(tmpMsg))
+			{				
+				if(bufLen<strlen(*checkMsg)+strlen(tmpMsg)+16)
+				{
+					int newLen = strlen(*checkMsg)+strlen(tmpMsg)+2*1024;
+					*checkMsg = (char*)realloc(*checkMsg, newLen);
+				}
+				if(strlen(*checkMsg))
+					sprintf(*checkMsg, "%s;%s", *checkMsg, tmpMsg);
+				else
+					sprintf(*checkMsg, "%s", tmpMsg);
+			}
+			curThrItemNode = curThrItemNode->next;
+		}
+	}
+}
+
+void DeleteThreshold()
+{
+	g_ThresholdDeleteContex.isThreadRunning=true;
+
+	if(pthread_create(&g_ThresholdDeleteContex.threadHandler,NULL, ThresholdDeleteThreadStart, NULL) != 0)
+	{
+		g_ThresholdDeleteContex.isThreadRunning = false;
+		printf("> start ThresholdDelete thread failed!\r\n");	
+	}
+}
+//-------------------------Setting Part------------------------
+static int DeleteAllModbusThrItemNode(modbus_threshold_list thrList)
+{
+	int iRet = -1;
+	modbus_threshold_node * delNode = NULL, *head = NULL;
+	if(thrList == NULL) return iRet;
+	head = thrList;
+
+	delNode = head->next;
+	while(delNode)
+	{
+		head->next = delNode->next;
+		if(delNode->info.checkSrcValList.head)
+		{
+			check_value_node * frontValueNode = delNode->info.checkSrcValList.head;
+			check_value_node * delValueNode = frontValueNode->next;
+			while(delValueNode)
+			{
+				frontValueNode->next = delValueNode->next;
+				free(delValueNode);
+				delValueNode = frontValueNode->next;
+			}
+
+			free(delNode->info.checkSrcValList.head);
+			delNode->info.checkSrcValList.head = NULL;
+		}
+		if(delNode->info.name!=NULL)
+				free(delNode->info.name);
+		free(delNode);
+		delNode = head->next;
+	}
+
+	iRet = 0;
+	return iRet;
+}
+static void DestroyThresholdList(modbus_threshold_list thrList)
+{
+	if(NULL == thrList) return;
+	DeleteAllModbusThrItemNode(thrList);
+	free(thrList); 
+	thrList = NULL;
+}
+
+int Ack_SetThreshold(char *repMsg,char **repJsonStr){
+
+	char * out = NULL;
+	int outLen = 0;
+	cJSON *pSUSICommDataItem = NULL;
+	if(repMsg == NULL || repJsonStr == NULL) return outLen;
+	pSUSICommDataItem = cJSON_CreateObject();
+
+	cJSON_AddStringToObject(pSUSICommDataItem, "setThrRep", repMsg);
+
+	out = cJSON_PrintUnformatted(pSUSICommDataItem);
+	outLen = strlen(out) + 1;
+	*repJsonStr = (char *)(malloc(outLen));
+	memset(*repJsonStr, 0, outLen);
+	strcpy(*repJsonStr, out);
+	cJSON_Delete(pSUSICommDataItem);	
+	printf("%s\n",out);	
+	free(out);
+	return outLen;
+}
+modbus_threshold_list CreateThresholdList(){
+
+	modbus_threshold_node * head = NULL;
+	head = (modbus_threshold_node *)malloc(sizeof(modbus_threshold_node));
+	if(head)
+	{
+		memset(head, 0, sizeof(modbus_threshold_node));
+		head->next = NULL;
+		head->info.name = NULL;
+		head->info.isValid = false;
+		head->info.isEnable = false;
+		head->info.maxThr = DEF_INVALID_VALUE;
+		head->info.minThr = DEF_INVALID_VALUE;
+		head->info.thrType = DEF_THR_UNKNOW_TYPE;
+		head->info.lastingTimeS = DEF_INVALID_TIME;
+		head->info.intervalTimeS = DEF_INVALID_TIME;
+		head->info.checkRetValue = DEF_INVALID_VALUE;
+		head->info.checkSrcValList.head = NULL;
+		head->info.checkSrcValList.nodeCnt = 0;
+		head->info.checkType = ck_type_unknow;
+		head->info.repThrTime = DEF_INVALID_VALUE;
+		head->info.isNormal = true;
+	}
+	return head;
+}
+
+bool ParserThresholdInfo(cJSON * jsonObj, threshold_info *pThrItemInfo, bool *nIsValidPnt)
+{
+	bool bRet = false;
+	bool *nIsValid = nIsValidPnt;
+	bool allThrFlag = false;
+
+	if(jsonObj == NULL || pThrItemInfo == NULL) return bRet;
+	{
+		cJSON * pSubItem = NULL;
+		pSubItem = jsonObj;
+		if(pSubItem)
+		{			
+			pSubItem = cJSON_GetObjectItem(jsonObj, MODBUS_THR_N);
+			if(pSubItem)
+			{
+				pThrItemInfo->name = (char *)calloc(1,strlen(pSubItem->valuestring)+1);
+				strcpy(pThrItemInfo->name, pSubItem->valuestring);
+			}
+			else
+			{
+				pThrItemInfo->maxThr = DEF_INVALID_VALUE;
+			}
+
+			pThrItemInfo->isEnable = 0;
+			pSubItem = cJSON_GetObjectItem(jsonObj, MODBUS_THR_ENABLE);
+			if(pSubItem)
+			{
+				if(!strcasecmp(pSubItem->valuestring, "true"))
+				{
+					pThrItemInfo->isEnable = 1;
+				}
+			}
+
+			pSubItem = cJSON_GetObjectItem(jsonObj, MODBUS_THR_MAX);
+			if(pSubItem)
+			{
+				pThrItemInfo->maxThr = (float)pSubItem->valuedouble;
+			}
+			else
+			{
+				pThrItemInfo->maxThr = DEF_INVALID_VALUE;
+			}
+
+			pSubItem = cJSON_GetObjectItem(jsonObj, MODBUS_THR_MIN);
+			if(pSubItem)
+			{
+				pThrItemInfo->minThr = (float)pSubItem->valuedouble;
+			}
+			else
+			{
+				pThrItemInfo->minThr = DEF_INVALID_VALUE;
+			}
+
+			pSubItem = cJSON_GetObjectItem(jsonObj, MODBUS_THR_TYPE);
+			if(pSubItem)
+			{
+				pThrItemInfo->thrType = pSubItem->valueint;
+			}
+			else
+			{
+				pThrItemInfo->thrType = DEF_THR_UNKNOW_TYPE;
+			}
+
+			pSubItem = cJSON_GetObjectItem(jsonObj, MODBUS_THR_LTIME);
+			if(pSubItem)
+			{
+				pThrItemInfo->lastingTimeS = pSubItem->valueint;
+			}
+			else
+			{
+				pThrItemInfo->lastingTimeS = DEF_INVALID_TIME;
+			}
+
+			pSubItem = cJSON_GetObjectItem(jsonObj, MODBUS_THR_ITIME);
+			if(pSubItem)
+			{
+				pThrItemInfo->intervalTimeS = pSubItem->valueint;
+			}
+			else
+			{
+				pThrItemInfo->intervalTimeS = DEF_INVALID_TIME;
+			}
+
+			//pThrItemInfo->checkRetValue.vi = DEF_INVALID_VALUE;
+			pThrItemInfo->checkRetValue=DEF_INVALID_VALUE;
+			pThrItemInfo->checkSrcValList.head = NULL;
+			pThrItemInfo->checkSrcValList.nodeCnt = 0;
+			pThrItemInfo->checkType = ck_type_avg;
+			pThrItemInfo->isValid=true;
+			pThrItemInfo->isNormal = 1;
+			pThrItemInfo->repThrTime = 0;
+
+			bRet = true;
+		}
+	}
+	*nIsValid = true;//´Ë²ÎÊý¿ÉÉ¾³ý;
+	return bRet;
+}
+bool ParseThreshold(modbus_threshold_list Threshold_List)
+{
+	bool bRet = false;
+	if(Threshold_Data == NULL || Threshold_List == NULL) return bRet;
+	{
+		cJSON * root = NULL;
+		root = cJSON_Parse(Threshold_Data);
+		if(root)
+		{
+			cJSON * commDataItem = cJSON_GetObjectItem(root, MODBUS_JSON_ROOT_NAME);
+			if(commDataItem)
+			{
+				cJSON * info = NULL; 
+				cJSON * child = commDataItem->child;
+
+				while(child->type!=cJSON_Array)
+				{
+					child = child->next;
+				}
+
+				if(child->type==cJSON_Array)
+				{
+					info = child;
+					if(info)
+					{
+						modbus_threshold_node * head = Threshold_List;
+						int nCount = cJSON_GetArraySize(info);
+						int i = 0;
+						cJSON * subItem = NULL;
+						for(i=0; i<nCount; i++)
+						{
+							subItem = cJSON_GetArrayItem(info, i);
+							if(subItem)
+							{
+								bool nIsValid = false;
+								modbus_threshold_node * pThrItemNode = NULL;
+								pThrItemNode = (modbus_threshold_node *)malloc(sizeof(modbus_threshold_node));
+								memset(pThrItemNode, 0, sizeof(modbus_threshold_node));
+								if(ParserThresholdInfo(subItem, &pThrItemNode->info, &nIsValid))//in in out
+								{
+									if(nIsValid)
+									{
+										pThrItemNode->next = head->next;
+										head->next = pThrItemNode;
+									}
+									else
+									{
+										free(pThrItemNode);
+										pThrItemNode = NULL;
+									}
+								}
+								else
+								{
+									free(pThrItemNode);
+									pThrItemNode = NULL;
+								}
+							}
+						}
+						bRet = true;
+					}
+				}
+			}
+		}
+		if(Threshold_Data!=NULL)
+		{
+			free(Threshold_Data);
+			Threshold_Data=NULL;
+		}
+		cJSON_Delete(root);
+	}
+	return bRet;
+}
+
+
+
+int Parser_PackThrCheckRep(modbus_thr_rep_info * pThrCheckRep, char ** outputStr)
+{
+	char * out = NULL;
+	int outLen = 0;
+	cJSON *pSUSICommDataItem = NULL;
+	if(pThrCheckRep == NULL || outputStr == NULL) return outLen;
+	pSUSICommDataItem = cJSON_CreateObject();
+
+	if(pThrCheckRep->isTotalNormal)
+	{
+		cJSON_AddStringToObject(pSUSICommDataItem, "subtype", "THRESHOLD_CHECK_INFO");
+		cJSON_AddStringToObject(pSUSICommDataItem, MODBUS_THR_CHECK_STATUS, "True");
+	}
+	else
+	{
+		cJSON_AddStringToObject(pSUSICommDataItem, "subtype", "THRESHOLD_CHECK_ERROR");
+		cJSON_AddStringToObject(pSUSICommDataItem, MODBUS_THR_CHECK_STATUS, "False");
+	}
+	if(pThrCheckRep->repInfo)
+	{
+		cJSON_AddStringToObject(pSUSICommDataItem, MODBUS_THR_CHECK_MSG, pThrCheckRep->repInfo);
+	}
+	else
+	{
+		cJSON_AddStringToObject(pSUSICommDataItem, MODBUS_THR_CHECK_MSG, "");
+	}
+
+	out = cJSON_PrintUnformatted(pSUSICommDataItem);
+	outLen = strlen(out) + 1;
+	*outputStr = (char *)(malloc(outLen));
+	memset(*outputStr, 0, outLen);
+	strcpy(*outputStr, out);
+	cJSON_Delete(pSUSICommDataItem);	
+	printf("%s\n",out);	
+	free(out);
+	return outLen;
+}
+bool InsertThresholdNode(modbus_threshold_list thrList, modbus_threshold_info * pinfo)
+{
+	bool bRet = false;
+
+	if(pinfo == NULL || thrList == NULL) return bRet;
+
+	modbus_threshold_node *head = thrList;
+
+	modbus_threshold_node *newNode = (modbus_threshold_node *)malloc(sizeof(modbus_threshold_node));
+	memset(newNode, 0, sizeof(modbus_threshold_node));
+	newNode->info.name=(char *)calloc(1,strlen(pinfo->name)+1);
+
+	strcpy(newNode->info.name, pinfo->name);
+	newNode->info.isEnable = pinfo->isEnable;
+	newNode->info.maxThr = pinfo->maxThr;
+	newNode->info.minThr = pinfo->minThr;
+	newNode->info.thrType = pinfo->thrType;
+	newNode->info.lastingTimeS = pinfo->lastingTimeS;
+	newNode->info.intervalTimeS = pinfo->intervalTimeS;
+	newNode->info.checkType = pinfo->checkType;
+	newNode->info.checkRetValue = DEF_INVALID_VALUE;
+	newNode->info.checkSrcValList.head = NULL;
+	newNode->info.checkSrcValList.nodeCnt = 0;
+	newNode->info.repThrTime = 0;
+	//newNode->info.isNormal = true;
+	//newNode->info.isValid = true;
+	newNode->info.isNormal = pinfo->isNormal;
+	newNode->info.isValid = pinfo->isValid; 
+	newNode->next = head->next;
+	head->next = newNode;
+
+	bRet=true;
+	return bRet;
+
+
+}
+modbus_threshold_node* FindThresholdNodeWithName(modbus_threshold_list thrList, char *name)
+{
+	modbus_threshold_node * findNode = NULL, *head = NULL;
+	if(thrList == NULL || name == NULL) return findNode;
+	head = thrList;
+	findNode = head->next;
+	while(findNode)
+	{
+		if(!strcmp(findNode->info.name, name)) break;
+		else
+		{
+			findNode = findNode->next;
+		}
+	}
+	return findNode;
+}
+static void ModbusIsThrItemListNormal(modbus_threshold_list curThrItemList, bool * isNormal)
+{
+	if(NULL == isNormal || curThrItemList == NULL) return;
+	{
+		modbus_threshold_node * curThrItemNode = curThrItemList->next;
+		while(curThrItemNode)
+		{
+			if(curThrItemNode->info.isEnable && !curThrItemNode->info.isNormal)
+			{
+				*isNormal = false;
+				break;
+			}
+			curThrItemNode = curThrItemNode->next;
+		}
+	}
+}
+void UpdateThreshold(modbus_threshold_list curThrList, modbus_threshold_list newThrList)
+{
+	bool bRet = false;
+	if(curThrList ==NULL)
+
+
+	if(NULL == newThrList || NULL == curThrList) return;
+	{
+		modbus_threshold_node * newinfoNode = NULL, * findinfoNode = NULL;
+		modbus_threshold_node * curinfoNode = curThrList->next;
+		while(curinfoNode) //first all thr node set invalid
+		{
+			curinfoNode->info.isValid = 0;
+			curinfoNode = curinfoNode->next;
+		}
+		newinfoNode = newThrList->next;
+		while(newinfoNode)  //merge old&new thr list
+		{
+			//findinfoNode = FindNMinfoNodeWithName(curThrList, newinfoNode->info.adapterName, newinfoNode->info.tagName);
+			findinfoNode=FindThresholdNodeWithName(curThrList,newinfoNode->info.name);
+			if(findinfoNode) //exist then update thr argc
+			{
+				findinfoNode->info.isValid = 1;
+				findinfoNode->info.intervalTimeS = newinfoNode->info.intervalTimeS;
+				findinfoNode->info.lastingTimeS = newinfoNode->info.lastingTimeS;
+				findinfoNode->info.isEnable = newinfoNode->info.isEnable;
+				findinfoNode->info.maxThr = newinfoNode->info.maxThr;
+				findinfoNode->info.minThr = newinfoNode->info.minThr;
+				findinfoNode->info.thrType = newinfoNode->info.thrType;
+			}
+			else  //not exist then insert to old list
+			{
+				InsertThresholdNode(curThrList, &newinfoNode->info);
+			}
+			newinfoNode = newinfoNode->next;
+		}
+		{
+			unsigned int defRepMsg = 2*1024;
+			char *repMsg= (char*)malloc(defRepMsg);
+			modbus_threshold_node * preNode = curThrList,* normalRepNode = NULL, *delNode = NULL;
+			memset(repMsg, 0, defRepMsg);
+			curinfoNode = preNode->next;
+			while(curinfoNode) //check need delete&normal report node
+			{
+				normalRepNode = NULL;
+				delNode = NULL;
+				if(curinfoNode->info.isValid == 0)
+				{
+					preNode->next = curinfoNode->next;
+					delNode = curinfoNode;
+					if(curinfoNode->info.isNormal == false)
+					{
+						normalRepNode = curinfoNode;
+					}
+				}
+				else
+				{
+					preNode = curinfoNode;
+				}
+				if(normalRepNode == NULL && curinfoNode->info.isEnable == false && curinfoNode->info.isNormal == false)
+				{
+					normalRepNode = curinfoNode;
+				}
+				if(normalRepNode)
+				{
+					char *tmpMsg = NULL;
+					int len = strlen(curinfoNode->info.name)+strlen(DEF_NOR_EVENT_STR)+32;//if?ï¿½ï¿½?å¤§ï¿½?info.adapterNameï¼Œfree?ï¿½å‡º??
+					tmpMsg = (char*)malloc(len);
+					memset(tmpMsg, 0, len);
+					sprintf(tmpMsg, "%s %s", curinfoNode->info.name,DEF_NOR_EVENT_STR);
+					if(tmpMsg && strlen(tmpMsg))
+					{
+						if(defRepMsg<strlen(tmpMsg)+strlen(repMsg)+1)
+						{
+							int newLen = strlen(tmpMsg) + strlen(repMsg) + 1024;
+							repMsg = (char *)realloc(repMsg, newLen);
+						}	
+						if(strlen(repMsg))
+						{
+							sprintf(repMsg, "%s;%s", repMsg, tmpMsg);
+						}
+						else
+						{
+							sprintf(repMsg, "%s", tmpMsg);
+						}
+					}
+					if(tmpMsg)free(tmpMsg);
+					tmpMsg = NULL;
+					normalRepNode->info.isNormal = true;
+				}
+				if(delNode)
+				{
+					if(delNode->info.name!=NULL)
+					{
+						free(delNode->info.name);
+						delNode->info.name=NULL;
+					}
+					if(delNode->info.checkSrcValList.head)
+					{
+						check_value_node * frontValueNode = delNode->info.checkSrcValList.head;
+						check_value_node * delValueNode = frontValueNode->next;
+						while(delValueNode)
+						{
+							frontValueNode->next = delValueNode->next;
+							free(delValueNode);
+							delValueNode = frontValueNode->next;
+						}
+						free(delNode->info.checkSrcValList.head);
+						delNode->info.checkSrcValList.head = NULL;
+					}
+					//if(delNode->info.name) free(delNode->info.name);
+					//if(delNode->info.desc) free(delNode->info.desc);
+					free(delNode);
+					delNode = NULL;
+				}
+				curinfoNode = preNode->next;
+			}
+			if(strlen(repMsg))
+			{
+				char * repJsonStr = NULL;
+				int jsonStrlen = 0;
+				modbus_thr_rep_info thrRepInfo;
+				int repInfoLen = strlen(repMsg)+1;
+				unsigned int repMsgLen = 0;
+
+				repMsgLen = strlen(repMsg)+1;
+				thrRepInfo.isTotalNormal = true;
+				//add
+				ModbusIsThrItemListNormal(curThrList, &thrRepInfo.isTotalNormal);
+				thrRepInfo.repInfo = (char*)malloc(repMsgLen);
+				memset(thrRepInfo.repInfo, 0, repMsgLen);
+				strcpy(thrRepInfo.repInfo, repMsg);
+				jsonStrlen = Parser_PackThrCheckRep(&thrRepInfo, &repJsonStr);
+				if(jsonStrlen > 0 && repJsonStr != NULL)
+				{
+					g_sendcbf(&g_PluginInfo, modbus_thr_check_rep, repJsonStr, strlen(repJsonStr)+1, NULL, NULL);
+				}
+				if(repJsonStr) free(repJsonStr);
+				if(thrRepInfo.repInfo) free(thrRepInfo.repInfo);
+			}
+			if(repMsg) free(repMsg);
+		}
+
+
+/*#if true
+		{
+			netmon_handler_context_t * pNetMonHandlerContext = &NetMonHandlerContext;
+			net_info_list curNetInfoList = pNetMonHandlerContext->netInfoList;
+			//app_os_mutex_lock(&NMThrInfoMutex);
+			if(NMinfoList != NULL && NMinfoList->next != NULL)
+			{
+				UpdateNMinfoList();//must need!
+			}
+			//app_os_mutex_unlock(&NMThrInfoMutex);
+		}
+#endif*/
+	}
+}
+void SetThreshold()
+{
+	if(Threshold_Data==NULL || strlen(Threshold_Data)<=1) 
+		return;
+
+	g_ThresholdSetContex.isThreadRunning=true;
+
+	if(pthread_create(&g_ThresholdSetContex.threadHandler,NULL, ThresholdSetThreadStart, NULL) != 0)
+	{
+		g_ThresholdSetContex.isThreadRunning = false;
+		printf("> start ThresholdSet thread failed!\r\n");	
+	}
+}
+//-------------------------Check Part------------------------
+static int FindDataNameWithThresholdName(char * name, int *type){
+
+	int i=0; 
+	int index=-1;
+	char *str=(char *)calloc(1,strlen(name)+1);
+	char *delim = "/";
+	char *pch=NULL;
+	char *data_type=NULL;
+	char *data_name=NULL;
+	strcpy(str,name);
+	printf ("Splitting string \"%s\" into tokens:\n",str);
+	pch = strtok(str,delim);
+	while (pch != NULL)
+	{
+		if(i==1)
+		{
+			data_type=(char *)calloc(1,strlen(pch)+1);
+			strcpy(data_type,pch);
+		}
+		else if(i==2)
+		{
+			data_name=(char *)calloc(1,strlen(pch)+1);
+			strcpy(data_name,pch);
+		}
+		//printf ("%s\n",pch);
+		pch = strtok (NULL, delim);
+		i++;
+	}
+
+
+	if(strcmp(data_type,"Discrete Inputs")==0)
+	{
+		for(int i=0;i<numberOfDI;i++)
+		{
+			if(strcmp(DI[i].name,data_name)==0)
+			{
+				index=i;
+				*type=0;
+				break;
+			}
+		}
+
+	}
+	if(strcmp(data_type,"Coils")==0)
+	{
+		for(int i=0;i<numberOfDO;i++)
+		{
+			if(strcmp(DO[i].name,data_name)==0)
+			{
+				index=i;
+				*type=1;
+				break;
+			}
+		}
+	}
+
+
+	if(strcmp(data_type,"Input Registers")==0)
+	{
+		for(int i=0;i<numberOfAI;i++)
+		{
+			if(strcmp(AI[i].name,data_name)==0)
+			{
+				index=i;
+				*type=2;
+				break;
+			}
+		}
+
+	}
+	if(strcmp(data_type,"Holding Registers")==0)
+	{
+		for(int i=0;i<numberOfAO;i++)
+		{
+			if(strcmp(AO[i].name,data_name)==0)
+			{
+				index=i;
+				*type=3;
+				break;
+			}
+		}
+	}
+
+	if(str!=NULL)
+		free(str);
+	if(data_type!=NULL)
+		free(data_type);
+	if(data_name!=NULL)
+		free(data_name);
+
+
+	return index;
+	
+}
+static bool ModbusCheckSrcVal(threshold_info * pThrItemInfo, float * pCheckValue)
+{
+	bool bRet = false;
+	if(pThrItemInfo == NULL || pCheckValue == NULL) return bRet;
+	{
+		long long nowTime = time(NULL);
+		pThrItemInfo->checkRetValue = DEF_INVALID_VALUE;
+		if(pThrItemInfo->checkSrcValList.head == NULL)
+		{
+			pThrItemInfo->checkSrcValList.head = (check_value_node *)malloc(sizeof(check_value_node));
+			pThrItemInfo->checkSrcValList.nodeCnt = 0;
+			pThrItemInfo->checkSrcValList.head->checkValTime = DEF_INVALID_TIME;
+			pThrItemInfo->checkSrcValList.head->ckV = DEF_INVALID_VALUE;
+			pThrItemInfo->checkSrcValList.head->next = NULL;
+		}
+
+		if(pThrItemInfo->checkSrcValList.nodeCnt > 0)
+		{
+			long long minCkvTime = 0;
+			check_value_node * curNode = pThrItemInfo->checkSrcValList.head->next;
+			minCkvTime = curNode->checkValTime;
+			while(curNode)
+			{
+				if(curNode->checkValTime < minCkvTime)  minCkvTime = curNode->checkValTime;
+				curNode = curNode->next; 
+			}
+
+			if(nowTime - minCkvTime >= pThrItemInfo->lastingTimeS)
+			{
+				switch(pThrItemInfo->checkType)
+				{
+						case ck_type_avg:
+							{
+								check_value_node * curNode = pThrItemInfo->checkSrcValList.head->next;
+								float avgTmpF = 0;
+								int avgTmpI = 0;
+								while(curNode)
+								{
+									if(curNode->ckV != DEF_INVALID_VALUE) 
+									{
+										avgTmpF += curNode->ckV;
+									}
+									curNode = curNode->next; 
+								}
+								if(pThrItemInfo->checkSrcValList.nodeCnt > 0)
+								{
+									avgTmpF = avgTmpF/pThrItemInfo->checkSrcValList.nodeCnt;
+									pThrItemInfo->checkRetValue = avgTmpF;
+									bRet = true;
+								}
+								break;
+							}
+						case ck_type_max:
+							{
+								check_value_node * curNode = pThrItemInfo->checkSrcValList.head->next;
+								float maxTmpF = -FLT_MAX;
+								int maxTmpI = -FLT_MAX;
+								while(curNode)
+								{
+									if(curNode->ckV > maxTmpF) 
+										maxTmpF = curNode->ckV;
+
+									curNode = curNode->next; 
+								}
+
+								if(maxTmpF > -FLT_MAX)
+								{
+									pThrItemInfo->checkRetValue = maxTmpF;
+									bRet = true;
+								}
+								break;
+							}
+						case ck_type_min:
+							{
+								check_value_node * curNode = pThrItemInfo->checkSrcValList.head->next;
+								float minTmpF = FLT_MAX;
+								int minTmpI = FLT_MAX;
+								while(curNode)
+								{
+									if(curNode->ckV < minTmpF) 
+										minTmpF = curNode->ckV;
+
+									curNode = curNode->next; 
+								}
+
+
+								if(minTmpF < FLT_MAX)
+								{
+									pThrItemInfo->checkRetValue = minTmpF;
+									bRet = true;
+								}
+								break;
+							}
+						default: break;
+				}
+
+				{
+					check_value_node * frontNode = pThrItemInfo->checkSrcValList.head;
+					check_value_node * curNode = frontNode->next;
+					check_value_node * delNode = NULL;
+					while(curNode)
+					{
+						if(nowTime - curNode->checkValTime >= pThrItemInfo->lastingTimeS)
+						{
+							delNode = curNode;
+							frontNode->next  = curNode->next;
+							curNode = frontNode->next;
+							free(delNode);
+							pThrItemInfo->checkSrcValList.nodeCnt--;
+							delNode = NULL;
+						}
+						else
+						{
+							frontNode = curNode;
+							curNode = frontNode->next;
+						}
+					}
+				}
+			}
+		} //end if(pThrItemInfo->checkSrcValList.nodeCnt > 0)
+		{
+			check_value_node * head = pThrItemInfo->checkSrcValList.head;
+			check_value_node * newNode = (check_value_node *)malloc(sizeof(check_value_node));
+			newNode->checkValTime = nowTime;
+			newNode->ckV = (*pCheckValue);
+			newNode->next = head->next;
+			head->next = newNode;
+			pThrItemInfo->checkSrcValList.nodeCnt++;
+		}
+	}
+	return bRet;
+}
+
+static bool ModbusCheckThrItem(threshold_info * pThrItemInfo, float * checkVal, char * checkRetMsg)
+{
+	bool bRet = false;
+	bool isTrigger = false;
+	bool triggerMax = false;
+	bool triggerMin = false;
+	char tmpRetMsg[1024] = {0};
+	char checkTypeStr[32] = {0};
+	if(pThrItemInfo == NULL || checkVal == NULL || checkRetMsg== NULL) return bRet;
+	{
+		switch(pThrItemInfo->checkType)
+		{
+		case ck_type_avg:
+			{
+				sprintf(checkTypeStr, "average");
+				break;
+			}
+		case ck_type_max:
+			{
+				sprintf(checkTypeStr, "max");
+				break;
+			}
+		case ck_type_min:
+			{
+				sprintf(checkTypeStr, "min");
+				break;
+			}
+		default: break;
+		}
+	}
+
+	if(ModbusCheckSrcVal(pThrItemInfo, checkVal) && pThrItemInfo->checkRetValue != DEF_INVALID_VALUE)
+	{
+		if(pThrItemInfo->thrType & DEF_THR_MAX_TYPE)
+		{
+			if(pThrItemInfo->maxThr != DEF_INVALID_VALUE && (pThrItemInfo->checkRetValue > pThrItemInfo->maxThr))
+			{
+				char pathStr[256] = {0};
+				char bnStr[256] = {0};
+				sprintf(pathStr, "%s", pThrItemInfo->name);
+				sprintf(tmpRetMsg, "%s #tk#%s#tk# (%f)> #tk#maxThreshold#tk# (%f)", pathStr, checkTypeStr, pThrItemInfo->checkRetValue, pThrItemInfo->maxThr);
+				//sprintf(bnStr, "%s%d-%s", NETMON_GROUP_NETINDEX, pThrItemInfo->index, pThrItemInfo->adapterName);
+				//sprintf(pathStr, "%s/%s/%s/%s", DEF_HANDLER_NAME, NETMON_INFO_LIST, bnStr, pThrItemInfo->tagName);
+				//sprintf(tmpRetMsg, "%s #tk#%s#tk# (%f)> #tk#maxThreshold#tk# (%f)", pathStr, checkTypeStr, pThrItemInfo->checkRetValue, pThrItemInfo->maxThr);
+				//sprintf(tmpRetMsg, "%s (#tk#%s#tk#:%f)> #tk#maxThreshold#tk# (%f)", pThrItemInfo->n, checkTypeStr, pThrItemInfo->checkRetValue, pThrItemInfo->maxThr);
+				triggerMax = true;
+			}
+		}
+		if(pThrItemInfo->thrType & DEF_THR_MIN_TYPE)
+		{
+			if(pThrItemInfo->minThr != DEF_INVALID_VALUE && (pThrItemInfo->checkRetValue  < pThrItemInfo->minThr))
+			{
+				char pathStr[256] = {0};
+				char bnStr[256] = {0};
+				sprintf(pathStr, "%s", pThrItemInfo->name);
+				sprintf(tmpRetMsg, "%s #tk#%s#tk# (%f)< #tk#minThreshold#tk# (%f)", pathStr, checkTypeStr, pThrItemInfo->checkRetValue, pThrItemInfo->minThr);
+				//sprintf(bnStr, "%s%d-%s", NETMON_GROUP_NETINDEX, pThrItemInfo->index, pThrItemInfo->adapterName);
+				//sprintf(pathStr, "%s/%s/%s/%s", DEF_HANDLER_NAME, NETMON_INFO_LIST, bnStr, pThrItemInfo->tagName);
+				//sprintf(tmpRetMsg, "%s #tk#%s#tk# (%f)< #tk#minThreshold#tk# (%f)", pathStr, checkTypeStr, pThrItemInfo->checkRetValue, pThrItemInfo->minThr);
+				//sprintf(tmpRetMsg, "%s (#tk#%s#tk#:%.0f)< #tk#minThreshold#tk# (%f)", pThrItemInfo->n, checkTypeStr, pThrItemInfo->checkRetValue, pThrItemInfo->minThr);
+				triggerMin = true;
+			}
+		}
+	}
+
+	switch(pThrItemInfo->thrType)
+	{
+	case DEF_THR_MAX_TYPE:
+		{
+			isTrigger = triggerMax;
+			break;
+		}
+	case DEF_THR_MIN_TYPE:
+		{
+			isTrigger = triggerMin;
+			break;
+		}
+	case DEF_THR_MAXMIN_TYPE:
+		{
+			isTrigger = triggerMin || triggerMax;
+			break;
+		}
+	}
+
+	if(isTrigger)
+	{
+		long long nowTime = time(NULL);
+		if(pThrItemInfo->intervalTimeS == DEF_INVALID_TIME || pThrItemInfo->intervalTimeS == 0 || nowTime - pThrItemInfo->repThrTime >= pThrItemInfo->intervalTimeS)
+		{
+			pThrItemInfo->repThrTime = nowTime;
+			pThrItemInfo->isNormal = false;
+			bRet = true;
+		}
+	}
+	else
+	{
+		if(!pThrItemInfo->isNormal && pThrItemInfo->checkRetValue != DEF_INVALID_VALUE)
+		{
+			memset(tmpRetMsg, 0, sizeof(tmpRetMsg));
+			sprintf(tmpRetMsg, "%s %s", pThrItemInfo->name,DEF_NOR_EVENT_STR);
+			//sprintf(tmpRetMsg, "%s (#tk#%s#tk#:%f) %s", pThrItemInfo->n, checkTypeStr, pThrItemInfo->checkRetValue, DEF_NOR_EVENT_STR);
+			pThrItemInfo->isNormal = true;
+			bRet = true;
+		}
+	}
+
+	if(!bRet) sprintf(checkRetMsg,"");
+	else sprintf(checkRetMsg, "%s", tmpRetMsg);
+
+	return bRet;
+}
+
+static bool ModbusCheckThr(modbus_threshold_list curThrItemList, char ** checkRetMsg, unsigned int bufLen){
+
+
+	bool bRet = false;
+	if(curThrItemList == NULL || NULL == (char*)(*checkRetMsg)) 
+		return bRet;
+
+	modbus_threshold_node * curThrItemNode = NULL;
+	char tmpMsg[1024*2] = {0};
+	float curCheckValue;
+	curThrItemNode = curThrItemList->next;
+
+	while(curThrItemNode)
+	{
+		if(curThrItemNode->info.isEnable && strlen(curThrItemNode->info.name)>0)
+		{
+			int index = -1;
+			int type = -1;
+			
+			index = FindDataNameWithThresholdName(curThrItemNode->info.name,&type);
+			if(index==-1)
+			{
+					if(bufLen<strlen(*checkRetMsg)+strlen(DEF_NOT_SUPT_EVENT_STR)+16)
+					{
+						int newLen = strlen(*checkRetMsg)+strlen(DEF_NOT_SUPT_EVENT_STR)+2*1024;
+						*checkRetMsg = (char*)realloc(*checkRetMsg, newLen);
+					}
+					if(strlen(*checkRetMsg))sprintf(*checkRetMsg, "%s;%s not support", *checkRetMsg, curThrItemNode->info.name);
+					else sprintf(*checkRetMsg, "%s not support", curThrItemNode->info.name);
+					curThrItemNode->info.isEnable = false;
+					curThrItemNode = curThrItemNode->next;
+					usleep(10*1000);
+					continue;
+			}
+
+			memset(tmpMsg, 0, sizeof(tmpMsg));
+			if(type==0)				//Discrete Inputs
+			{
+				curCheckValue=*(DI_Bits+index);
+			}
+			else if(type==1)		//Coils
+			{
+				curCheckValue=*(DO_Bits+index);
+			}
+			else if(type==2)		//Input Registers
+			{
+				if(strcmp(AI[index].conversion, "") == 0)
+				{								
+					if(AI[index].sw_mode==1||AI[index].sw_mode==2||AI[index].sw_mode==3||AI[index].sw_mode==4)
+					{	
+						curCheckValue = (float)AI[index].fv*AI[index].precision;
+					}
+					else if(AI[index].sw_mode==5||AI[index].sw_mode==6)
+					{	
+						curCheckValue = (float)AI[index].uiv*AI[index].precision;
+					}
+					else if(AI[index].sw_mode==7||AI[index].sw_mode==8)
+					{	
+						curCheckValue = (float)AI[index].iv*AI[index].precision;
+					}																									
+					else
+					{
+						curCheckValue = (float)AI[index].Regs*AI[index].precision;
+					}
+				}
+				else
+				{
+					if(AI[index].sw_mode==1||AI[index].sw_mode==2||AI[index].sw_mode==3||AI[index].sw_mode==4)
+					{	
+						float valConv = LuaConversion(AI[index].fv, AI[index].conversion);
+						curCheckValue = (float)valConv*AI[index].precision;
+					}
+					else if(AI[index].sw_mode==5||AI[index].sw_mode==6)
+					{
+						uint32_t valConv = LuaConversion(AI[index].uiv, AI[index].conversion);
+						curCheckValue = (float)valConv*AI[index].precision;
+					}
+					else if(AI[index].sw_mode==7||AI[index].sw_mode==8)
+					{
+						int valConv = LuaConversion(AI[index].iv, AI[index].conversion);
+						curCheckValue = (float)valConv*AI[index].precision;
+					}
+					else
+					{
+						double valConv = LuaConversion(AI[index].Regs, AI[index].conversion);
+						curCheckValue = (float)valConv*AI[index].precision;
+					}
+				}
+			}
+			else if(type==3)		//Holding Registers
+			{
+				if(strcmp(AO[index].conversion, "") == 0)
+				{								
+					if(AO[index].sw_mode==1||AO[index].sw_mode==2||AO[index].sw_mode==3||AO[index].sw_mode==4)
+					{	
+						curCheckValue = (float)AO[index].fv*AO[index].precision;
+					}
+					else if(AO[index].sw_mode==5||AO[index].sw_mode==6)
+					{	
+						curCheckValue = (float)AO[index].uiv*AO[index].precision;
+					}
+					else if(AO[index].sw_mode==7||AO[index].sw_mode==8)
+					{	
+						curCheckValue = (float)AO[index].iv*AO[index].precision;
+					}																									
+					else
+					{
+						curCheckValue = (float)AO[index].Regs*AO[index].precision;
+					}
+				}
+				else
+				{
+					if(AO[index].sw_mode==1||AO[index].sw_mode==2||AO[index].sw_mode==3||AO[index].sw_mode==4)
+					{	
+						float valConv = LuaConversion(AO[index].fv, AO[index].conversion);
+						curCheckValue = (float)valConv*AO[index].precision;
+					}
+					else if(AO[index].sw_mode==5||AO[index].sw_mode==6)
+					{
+						uint32_t valConv = LuaConversion(AO[index].uiv, AO[index].conversion);
+						curCheckValue = (float)valConv*AO[index].precision;
+					}
+					else if(AO[index].sw_mode==7||AO[index].sw_mode==8)
+					{
+						int valConv = LuaConversion(AO[index].iv, AO[index].conversion);
+						curCheckValue = (float)valConv*AO[index].precision;
+					}
+					else
+					{
+						double valConv = LuaConversion(AO[index].Regs, AO[index].conversion);
+						curCheckValue = (float)valConv*AO[index].precision;
+					}
+				}
+			}
+
+			ModbusCheckThrItem(&curThrItemNode->info, &curCheckValue, tmpMsg);//?ï¿½ç?out
+
+			if(strlen(tmpMsg))
+			{
+				if(bufLen<strlen(*checkRetMsg)+strlen(tmpMsg)+16)
+				{
+					int newLen = strlen(*checkRetMsg)+strlen(tmpMsg)+2*1024;
+					*checkRetMsg = (char*)realloc(*checkRetMsg, newLen);
+				}
+				if(strlen(*checkRetMsg))sprintf(*checkRetMsg, "%s;%s", *checkRetMsg, tmpMsg);
+				else sprintf(*checkRetMsg, "%s", tmpMsg);
+			}
+
+			curThrItemNode = curThrItemNode->next;
+			usleep(10*1000);
+		} 
+		else if(!curThrItemNode->info.isEnable)
+		{
+			curThrItemNode = curThrItemNode->next;
+			usleep(10*1000);
+		}
+	}
+
+	return bRet;
+}
+static bool ModbusIsThrNormal(modbus_threshold_list thrList, bool * isNormal)
+{
+	bool bRet = false;
+	if(isNormal == NULL || thrList == NULL) return bRet;
+	{
+		modbus_threshold_node * curThrItemNode = NULL;
+		curThrItemNode = thrList->next;
+		while(curThrItemNode)
+		{
+			if(curThrItemNode->info.isEnable && !curThrItemNode->info.isNormal && curThrItemNode->info.isValid)
+			{
+				*isNormal = false;
+				break;
+			}
+			curThrItemNode = curThrItemNode->next;
+		}
+	}
+	bRet = true;
+	return bRet;
+}
 //--------------------------------------------------------------------------------------------------------------
 //------------------------------------------------Threads-------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------
@@ -4317,8 +5804,12 @@ static void* RetrieveThreadStart(void *args)
 	{ 
 		if(bAllDataAlloc)
 			if(!bIsSimtor && ctx!=NULL)
+			{	
 				g_bRetrieve=Modbus_Rev();
-		usleep(500*1000);	//To fix yocto
+				AssembleData();
+			}
+		//usleep(500*1000);	//To fix yocto
+		usleep(Modbus_Interval*1000*1000);
 	}
 	#pragma endregion Modbus_Retrieve
 
@@ -4523,6 +6014,186 @@ static void* AutoUploadThreadStart(void *args)
 	return 0;
 }
 
+//Threshold Checker Thread
+static void* ThresholdCheckThreadStart(void *args)
+{
+	handler_context_t *pHandlerContex = (handler_context_t *)args;
+	int i = 0;
+
+	char *repMsg = NULL;
+	unsigned int bufLen = 4*1024;
+	bool bRet = false;
+	repMsg = (char *)malloc(bufLen);
+	memset(repMsg, 0, bufLen);
+
+	while(g_ThresholdCheckContex.isThreadRunning)
+	{
+		pthread_mutex_lock(&pModbusThresholdMux);
+		if(MODBUSthresholdList!=NULL && MODBUSthresholdList->next != NULL)
+		{
+			memset(repMsg, 0, bufLen);
+			ModbusCheckThr(MODBUSthresholdList, &repMsg, bufLen);
+		}
+		pthread_mutex_unlock(&pModbusThresholdMux);
+
+		if(strlen(repMsg))
+		{
+			bool bRet = false;
+			bool isNormal = true;
+			//app_os_mutex_lock(&NMThrInfoMutex);
+			bRet = ModbusIsThrNormal(MODBUSthresholdList, &isNormal);
+			//app_os_mutex_unlock(&NMThrInfoMutex);
+			if(bRet)
+			{
+				char * repJsonStr = NULL;
+				int jsonStrlen = 0;
+				modbus_thr_rep_info thrRepInfo;
+				unsigned int repMsgLen = 0;
+				HANDLER_NOTIFY_SEVERITY severity;
+				thrRepInfo.isTotalNormal = isNormal;
+
+				repMsgLen = strlen(repMsg)+1;
+				thrRepInfo.repInfo = (char*)malloc(repMsgLen);
+				memset(thrRepInfo.repInfo, 0, repMsgLen);
+				strcpy(thrRepInfo.repInfo, repMsg);
+				jsonStrlen = Parser_PackThrCheckRep(&thrRepInfo, &repJsonStr);
+				if(jsonStrlen > 0 && repJsonStr != NULL)
+				{
+					//g_sendcbf(&g_PluginInfo, modbus_thr_check_rep, repJsonStr, strlen(repJsonStr)+1, NULL, NULL);
+					if(thrRepInfo.isTotalNormal)
+						severity = Severity_Informational;
+					else
+						severity = Severity_Error;
+
+					g_sendeventcbf(&g_PluginInfo, severity, repJsonStr, strlen(repJsonStr)+1, NULL, NULL);
+				}
+				if(repJsonStr)free(repJsonStr);
+				if(thrRepInfo.repInfo) free(thrRepInfo.repInfo);
+			}
+		}
+
+		{//app_os_sleep(5000);
+			int i = 0;
+			for(i = 0; g_ThresholdCheckContex.isThreadRunning && i<10; i++)
+			{
+				usleep(100*1000);
+			}
+		}
+	}
+
+	if(repMsg) 
+		free(repMsg);
+
+	
+	return 0;
+}
+
+//Threshold Setter Thread
+static void* ThresholdSetThreadStart(void *args)
+{
+	int i = 0;
+	char repMsg[1024] = "";
+
+	pthread_mutex_lock(&pModbusThresholdMux);
+	modbus_threshold_list Threshold_List = CreateThresholdList();
+	bool bRet = ParseThreshold(Threshold_List); 
+
+	while(g_ThresholdSetContex.isThreadRunning)
+	{
+		if(!bRet)
+		{
+			sprintf(repMsg, "%s", "Threshold apply failed!");
+		}
+		else
+		{
+			UpdateThreshold(MODBUSthresholdList, Threshold_List);
+			sprintf(repMsg,"Threshold apply OK!");
+		}
+
+		if(strlen(repMsg))
+		{
+			char * repJsonStr = NULL;
+			int jsonStrlen = Ack_SetThreshold(repMsg, &repJsonStr);
+			if(jsonStrlen > 0 && repJsonStr != NULL)
+			{
+				g_sendcbf(&g_PluginInfo, modbus_set_thr_rep, repJsonStr, strlen(repJsonStr)+1, NULL, NULL);
+			}
+			if(repJsonStr)free(repJsonStr);
+		}
+
+		g_ThresholdSetContex.isThreadRunning=false;
+	
+	}
+	if(Threshold_List) DestroyThresholdList(Threshold_List);
+
+	pthread_mutex_unlock(&pModbusThresholdMux);
+	
+	return 0;
+}
+
+
+//Threshold Delete Thread
+static void* ThresholdDeleteThreadStart(void *args)
+{
+	modbus_threshold_list curThrItemList = NULL;
+	char *tmpMsg;
+	unsigned int bufLen = 1024*2;
+	tmpMsg = (char*)malloc(bufLen);
+	memset(tmpMsg, 0, bufLen);
+
+	while(g_ThresholdDeleteContex.isThreadRunning)
+	{
+		curThrItemList = MODBUSthresholdList;
+		if(curThrItemList)
+		{
+			ModbusWhenDelThrCheckNormal(curThrItemList, &tmpMsg, bufLen);
+			DeleteAllModbusThrItemNode(curThrItemList);
+			//NetMonWhenDelThrCheckNormal(curThrItemList, &tmpMsg, bufLen);
+			//DeleteAllNMThrItemNode(curThrItemList);
+		}
+
+		if(strlen(tmpMsg))
+		{
+			char * repJsonStr = NULL;
+			int jsonStrlen = 0;
+			modbus_thr_rep_info thrRepInfo;
+			unsigned int tmpMsgLen = 0;
+
+			tmpMsgLen = strlen(tmpMsg)+1;
+			thrRepInfo.isTotalNormal = true;
+			thrRepInfo.repInfo = (char*)malloc(tmpMsgLen);
+			memset(thrRepInfo.repInfo, 0, tmpMsgLen);
+			strcpy(thrRepInfo.repInfo, tmpMsg);
+			jsonStrlen = Parser_PackThrCheckRep(&thrRepInfo, &repJsonStr);
+			if(jsonStrlen > 0 && repJsonStr != NULL)
+			{
+				g_sendcbf(&g_PluginInfo, modbus_thr_check_rep, repJsonStr, strlen(repJsonStr)+1, NULL, NULL);
+			}
+			if(repJsonStr) free(repJsonStr);
+			if(thrRepInfo.repInfo) free(thrRepInfo.repInfo);
+		}
+		if(tmpMsg) free(tmpMsg);
+
+		{
+			char * repJsonStr = NULL;
+			int jsonStrlen = 0;
+			char delRepMsg[256] = {0};
+			snprintf(delRepMsg, sizeof(delRepMsg), "%s", "Delete all threshold successfully!");
+			jsonStrlen = Parser_PackDelAllThrRep(delRepMsg, &repJsonStr);
+			if( repJsonStr != NULL)
+			{
+				g_sendcbf(&g_PluginInfo, modbus_del_thr_rep, repJsonStr, strlen(repJsonStr)+1, NULL, NULL);
+			}
+			if(repJsonStr)free(repJsonStr);
+		}
+
+		g_ThresholdDeleteContex.isThreadRunning=false;
+	}
+
+	return 0;
+}
+
+
 //--------------------------------------------------------------------------------------------------------------
 //--------------------------------------Handler Functions-------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------
@@ -4569,7 +6240,6 @@ int HANDLER_API Handler_Initialize( HANDLER_INFO *pluginfo )
 
 	
 	g_status = handler_status_init;
-	
 
 	return handler_success;
 }
@@ -4606,6 +6276,15 @@ void Handler_Uninitialize()
 		IoT_ReleaseAll(g_Capability);
 		g_Capability = NULL;
 	}
+
+	if(Threshold_Data!=NULL)
+		free(Threshold_Data);
+
+	pthread_mutex_lock(&pModbusThresholdMux);
+	if(MODBUSthresholdList)
+		DestroyThresholdList(MODBUSthresholdList);
+	MODBUSthresholdList = NULL;
+	pthread_mutex_unlock(&pModbusThresholdMux);
 
 }
 
@@ -4692,6 +6371,10 @@ int HANDLER_API Handler_Start( void )
 	// Load ini file
 	bFind=read_INI_Platform(modulePath,iniPath);
 
+	bFind = read_INI();
+	if(bFind)
+		bAllDataAlloc=true;
+
 	if(Modbus_Log)
 	{
 		MRLog_path=(char *)calloc(1,strlen(modulePath)+strlen("MR.txt")+1);
@@ -4702,11 +6385,13 @@ int HANDLER_API Handler_Start( void )
 		strcat(MSLog_path,"MS.txt");
 	}
 		
-
+	g_ThresholdSetContex.isThreadRunning=false;
+	g_ThresholdDeleteContex.isThreadRunning=false;
 	
 	g_RetrieveContex.isThreadRunning = true;
 	g_AutoReportContex.isThreadRunning = true;
 	g_AutoUploadContex.isThreadRunning = true;
+	g_ThresholdCheckContex.isThreadRunning=true;
 	
 	if(bFind)
 	{	AI_Regs_temp_Ary = (uint16_t *)calloc(2,sizeof(uint16_t));
@@ -4757,6 +6442,8 @@ int HANDLER_API Handler_Start( void )
 		ctx=NULL;
 	}
 
+	MODBUSthresholdList = CreateThresholdList();
+
 	if(pthread_create(&g_RetrieveContex.threadHandler,NULL, RetrieveThreadStart, &g_RetrieveContex) != 0)
 	{
 		g_RetrieveContex.isThreadRunning = false;
@@ -4775,6 +6462,13 @@ int HANDLER_API Handler_Start( void )
 	{
 		g_AutoUploadContex.isThreadRunning = false;
 		printf("> start AutoUpload thread failed!\r\n");	
+		return handler_fail;
+    }
+
+	if(pthread_create(&g_ThresholdCheckContex.threadHandler,NULL, ThresholdCheckThreadStart, &g_ThresholdCheckContex) != 0)
+	{
+		g_ThresholdCheckContex.isThreadRunning = false;
+		printf("> start ThresholdCheck thread failed!\r\n");	
 		return handler_fail;
     }
 
@@ -4830,6 +6524,28 @@ int HANDLER_API Handler_Stop( void )
 		g_AutoUploadContex.isThreadRunning = false;
 		pthread_join((pthread_t)g_AutoUploadContex.threadHandler,&status);
 		g_AutoUploadContex.threadHandler = NULL;
+	}
+
+
+	if(g_ThresholdCheckContex.isThreadRunning == true)
+	{
+		g_ThresholdCheckContex.isThreadRunning = false;
+		pthread_join((pthread_t)g_ThresholdCheckContex.threadHandler,&status);
+		g_ThresholdCheckContex.threadHandler = NULL;
+	}
+
+	if(g_ThresholdSetContex.isThreadRunning == true)
+	{
+		g_ThresholdSetContex.isThreadRunning = false;
+		pthread_join((pthread_t)g_ThresholdSetContex.threadHandler,&status);
+		g_ThresholdSetContex.threadHandler = NULL;
+	}
+
+	if(g_ThresholdDeleteContex.isThreadRunning == true)
+	{
+		g_ThresholdDeleteContex.isThreadRunning = false;
+		pthread_join((pthread_t)g_ThresholdDeleteContex.threadHandler,&status);
+		g_ThresholdDeleteContex.threadHandler = NULL;
 	}
 
 
@@ -4983,6 +6699,20 @@ void HANDLER_API Handler_Recv(char * const topic, void* const data, const size_t
 			
 			break;
 
+		}
+
+		case modbus_set_thr_req:
+		{
+			Threshold_Data=(char *)calloc(1,strlen((char *)data)+1);
+			strcpy(Threshold_Data,(char *)data);
+			SetThreshold();
+			break;
+		}
+
+		case modbus_del_thr_req:
+		{
+			DeleteThreshold();
+			break;
 		}
 
 	}
@@ -5219,14 +6949,14 @@ int HANDLER_API Handler_Get_Capability( char ** pOutReply ) // JSON Format
 	char* result = NULL;
 	int len = 0;
 	if(!pOutReply) return len;
-	bFind = read_INI();
+	//bFind = read_INI();
 	if(g_Capability)
 	{
 		IoT_ReleaseAll(g_Capability);
 		g_Capability = NULL;
 	}
-	if(bFind)
-		bAllDataAlloc=true;
+	//if(bFind)
+	//	bAllDataAlloc=true;
 
 	g_Capability = CreateCapability();
 	

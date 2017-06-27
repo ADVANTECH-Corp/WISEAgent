@@ -18,9 +18,12 @@ void GC_Init() {
 }
 
 void GC_Release() {
-	JSONGarbage *tail = gc->tail;
+	JSONGarbage *tail = NULL;
 	JSONGarbage *prev;
 	JSONode *node;
+	if(gc == NULL)
+		return;
+	tail = gc->tail;
 	while(tail != NULL) {
 		prev = tail->prev;
 		node = tail->garbage;

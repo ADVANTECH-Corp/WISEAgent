@@ -83,7 +83,7 @@ typedef struct WISE_Data_t
 	char unit[10];
 	int sw_mode;
 	bool bRevFin;
-
+	char conversion[300];
 }WISE_Data;
 
 
@@ -181,7 +181,7 @@ typedef struct iot_hwm_info_t{
 #define DEF_THR_MAXMIN_TYPE                3
 
 #define DEF_INVALID_TIME                   (-1) 
-#define DEF_INVALID_VALUE                  (-999) 
+#define DEF_INVALID_VALUE                  (-FLT_MAX) 
 
 #define DEF_MAX_THR_EVENT_STR                   "#tk#maxThreshold#tk#"
 #define DEF_MIN_THR_EVENT_STR                   "#tk#minThreshold#tk#"
@@ -191,6 +191,18 @@ typedef struct iot_hwm_info_t{
 #define DEF_AND_EVENT_STR                       "#tk#and#tk#"
 #define DEF_NOR_EVENT_STR                       "#tk#normal#tk#"
 #define DEF_NOT_SUPT_EVENT_STR                  "#tk#not surport#tk#"
+
+#define MODBUS_JSON_ROOT_NAME              "susiCommData"
+#define MODBUS_THR                         "Thresholds"
+#define MODBUS_THR_TAG_NAME                "tagName"
+#define MODBUS_THR_N				       "n"
+#define MODBUS_THR_MAX                     "max"
+#define MODBUS_THR_MIN                     "min"
+#define MODBUS_THR_TYPE                    "type"
+#define MODBUS_THR_LTIME                   "lastingTimeS"
+#define MODBUS_THR_ITIME                   "intervalTimeS"
+#define MODBUS_THR_ENABLE                  "enable"
+
 
 typedef enum{
 	ck_type_unknow = 0,
@@ -205,49 +217,51 @@ typedef union check_value_t{
 	int vi;
 }check_value_t;*/
 
-typedef struct check_value_node_t{
+typedef struct check_value_node{
 	float ckV;
 	long long checkValTime;
-	struct check_value_node_t * next;
-}check_value_node_t;
+	struct check_value_node * next;
+}check_value_node;
 
-typedef struct check_value_list_t{
-	check_value_node_t * head;
+typedef struct check_value_list{
+	check_value_node * head;
 	int nodeCnt;
-}check_value_list_t;
+}check_value_list;
 
-typedef struct sa_thr_item_info_t{
+typedef struct threshold_info{
+	bool isValid;
 	unsigned int id;
 	char * name;
-	char * desc;
+	//char * desc;
 	float maxThr;
 	float minThr;
 	int thrType;
-	int isEnable;
+	bool isEnable;
 	int lastingTimeS;
 	int intervalTimeS;
 	check_type_t checkType;
 	float checkRetValue;
-	check_value_list_t checkSrcValList;
+	check_value_list checkSrcValList;
 	long long repThrTime;
-	int isNormal;
-}sa_thr_item_info_t;
+	bool isNormal;
+}threshold_info;
 
-typedef sa_thr_item_info_t  modbus_thr_item_info_t;
+typedef threshold_info  modbus_threshold_info;
 
-typedef struct modbus_thr_item_node_t{
-	modbus_thr_item_info_t thrItemInfo;
-	struct modbus_thr_item_node_t * next;
-}modbus_thr_item_node_t;
+typedef struct modbus_threshold_node{
+	modbus_threshold_info info;
+	struct modbus_threshold_node * next;
+}modbus_threshold_node;
 
-typedef modbus_thr_item_node_t * modbus_thr_item_list;
+typedef modbus_threshold_node * modbus_threshold_list;
 
 typedef struct sa_thr_rep_info_t{
-	int isTotalNormal;
-	char repInfo[1024*2];
-}sa_thr_rep_info_t;
+	bool isTotalNormal;
+	//char repInfo[1024*2];
+	char *repInfo;
+}modbus_thr_rep_info;
 
-typedef sa_thr_rep_info_t modbus_thr_rep_t;
+//typedef sa_thr_rep_info_t modbus_thr_rep_t;
 
 typedef iot_item_type_t modbus_thr_item_type_t;
 
