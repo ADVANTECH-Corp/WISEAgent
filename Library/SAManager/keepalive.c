@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "NamedPipeClient.h"
+#include <XMLBase.h>
 
 #ifdef WIN32
 #define DEF_PIPE_NAME              "\\\\.\\pipe\\SAWatchdogCommPipe"
@@ -51,6 +52,7 @@ typedef struct WatchMessage{
 struct kepalive_ctx{
 	pthread_t		threadHandler;
 	bool			isThreadRunning;
+	int				commID;
 	Handler_List_t	*pHandlerList;
 };
 
@@ -243,21 +245,21 @@ void* threat_keepalive(void* args)
 	while(ctx->isThreadRunning)
 	{
 //#ifdef WIN32
-		pipeClientHandle = NamedPipeClientConnect(DEF_PIPE_NAME, DEF_COMM_ID, NULL);
+		pipeClientHandle = NamedPipeClientConnect(DEF_PIPE_NAME, ctx->commID, NULL);
 		if(pipeClientHandle)
 		{
 			usleep(1000*1000); //On CentOS, NamedPipeClient Connect need more time
-			SAManagerLog(g_keepalivelogger, Normal, "NamedPipe: %s, CommID: %d, IPC Connect successfully!", DEF_PIPE_NAME, DEF_COMM_ID);
+			SAManagerLog(g_keepalivelogger, Normal, "NamedPipe: %s, CommID: %d, IPC Connect successfully!", DEF_PIPE_NAME, ctx->commID);
 			isLogConnectFail = true;
 			memset(&watchMsg, 0, sizeof(WATCHMSG));
 			watchMsg.commCmd = START_WATCH;
-			watchMsg.commID = DEF_COMM_ID;
+			watchMsg.commID = ctx->commID;
 			watchMsg.commParams.starWatchInfo.objType = WIN_SERVICE;
 			watchMsg.commParams.starWatchInfo.watchPID = getpid();
 			bRet = NamedPipeClientSend(pipeClientHandle, (char *)&watchMsg, sizeof(WATCHMSG));
 			if(!bRet)
 			{
-				SAManagerLog(g_keepalivelogger, Error, "NamedPipe: %s, CommID: %d, Start watch failed!", DEF_PIPE_NAME, DEF_COMM_ID);
+				SAManagerLog(g_keepalivelogger, Error, "NamedPipe: %s, CommID: %d, Start watch failed!", DEF_PIPE_NAME, ctx->commID);
 				goto done;	
 			}
 			usleep(1000*1000); //On CentOS, NamedPipeClient Send Packet need more time
@@ -268,11 +270,11 @@ void* threat_keepalive(void* args)
 //#ifdef WIN32
 				//memset(&watchMsg, 0, sizeof(WATCHMSG));
 				watchMsg.commCmd = KEEPALIVE;
-				watchMsg.commID = DEF_COMM_ID;
+				watchMsg.commID = ctx->commID;
 				bRet = NamedPipeClientSend(pipeClientHandle, (char *)&watchMsg, sizeof(WATCHMSG));
 				if(!bRet)
 				{
-					//SAManagerLog(g_keepalivelogger, Error, "NamedPipe: %s, CommID: %d, Send keepalive failed!", DEF_PIPE_NAME, DEF_COMM_ID);
+					//SAManagerLog(g_keepalivelogger, Error, "NamedPipe: %s, CommID: %d, Send keepalive failed!", DEF_PIPE_NAME, ctx->commID);
 					goto done;
 				}
 //#endif
@@ -281,16 +283,16 @@ void* threat_keepalive(void* args)
 			}
 			//memset(&watchMsg, 0, sizeof(WATCHMSG));
 			watchMsg.commCmd = STOP_WATCH;
-			watchMsg.commID = DEF_COMM_ID;
+			watchMsg.commID = ctx->commID;
 			bRet = NamedPipeClientSend(pipeClientHandle, (char *)&watchMsg, sizeof(WATCHMSG));
-			if(!bRet) SAManagerLog(g_keepalivelogger, Error, "NamedPipe: %s, CommID: %d, Stop watch failed!", DEF_PIPE_NAME, DEF_COMM_ID);
-			else SAManagerLog(g_keepalivelogger, Normal, "NamedPipe: %s, CommID: %d, Stop watch successfully!", DEF_PIPE_NAME, DEF_COMM_ID);       
+			if(!bRet) SAManagerLog(g_keepalivelogger, Error, "NamedPipe: %s, CommID: %d, Stop watch failed!", DEF_PIPE_NAME, ctx->commID);
+			else SAManagerLog(g_keepalivelogger, Normal, "NamedPipe: %s, CommID: %d, Stop watch successfully!", DEF_PIPE_NAME, ctx->commID);       
 		}
 		else
 		{
 			if(isLogConnectFail)
 			{//Continuous failure log only once
-				SAManagerLog(g_keepalivelogger,Error, "NamedPipe: %s, CommID: %d, IPC Connect failed!", DEF_PIPE_NAME, DEF_COMM_ID);
+				SAManagerLog(g_keepalivelogger,Error, "NamedPipe: %s, CommID: %d, IPC Connect failed!", DEF_PIPE_NAME, ctx->commID);
 				isLogConnectFail = false;
 			}
 		}		
@@ -306,8 +308,28 @@ void* threat_keepalive(void* args)
 	return 0;
 }
 
-void keepalive_initialize(Handler_List_t *pLoaderList, void * logger)
+
+int LoadWatchdogCommID(char* configFile)
 {
+	int iRet = DEF_COMM_ID;
+	char data[6] = {0};
+
+	xml_doc_info * doc = xml_Loadfile(configFile, "XMLConfigSettings", "Customize");
+	
+	if(doc == NULL)
+		return iRet;
+
+	if(!xml_GetItemValue(doc, "WatchdogCommID", data, sizeof(data)))
+		iRet = DEF_COMM_ID;
+	else
+		iRet = atoi(data);
+	xml_FreeDoc(doc);
+	return iRet;
+}
+
+void keepalive_initialize(Handler_List_t *pLoaderList, char* workdir, void * logger)
+{
+	char CAgentConfigPath[260] = {0}; 
 	g_keepalivelogger = logger;
 	
 	if(g_kepalivectx.threadHandler)
@@ -317,6 +339,8 @@ void keepalive_initialize(Handler_List_t *pLoaderList, void * logger)
 	}
 	
 	memset(&g_kepalivectx, 0, sizeof(struct kepalive_ctx));
+	util_path_combine(CAgentConfigPath, workdir, "agent_config.xml");
+	g_kepalivectx.commID = LoadWatchdogCommID(CAgentConfigPath);
 
 	g_kepalivectx.isThreadRunning = true;
 	if(pthread_create(&g_kepalivectx.threadHandler, NULL, threat_keepalive, &g_kepalivectx)==0)

@@ -13,14 +13,14 @@ CJSON_INC_DIR :=$(LIB_DIR)/cJSON
 LOG_INC_DIR := $(LIB_DIR)/Log
 MSGGEN_INC_DIR := $(LIB_DIR)/MessageGenerator
 
-program_EXT_OBJS := $(PLATFORM_LINUX_DIR)/util_string.o $(PLATFORM_LINUX_DIR)/util_path.o $(PLATFORMS_DIR)/basequeue.o
+program_EXT_OBJS := $(PLATFORM_LINUX_DIR)/util_string.o $(PLATFORM_LINUX_DIR)/util_path.o
 program_SUBDIRS := 
 CFLAGS += -Wall -fPIC
 CPPFLAGS += -D_LINUX
-LDFLAGS += -Wl,-rpath,./,-lrt -lm -ldl
+LDFLAGS += 
 program_INCLUDE_DIRS := $(PLATFORMS_DIR) $(PLATFORM_LINUX_DIR) $(INCLUDE_DIR) $(CJSON_INC_DIR) $(LOG_INC_DIR) $(MSGGEN_INC_DIR)
 program_LIBRARY_DIRS := $(CJSON_INC_DIR) $(LOG_INC_DIR) $(MSGGEN_INC_DIR)
-program_LIBRARIES := Log cJSON msggen pthread
+program_LIBRARIES := Log cJSON msggen pthread dl
 ############################################################################
 # End of Developer Modification 
 ############################################################################

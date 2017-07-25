@@ -21,12 +21,12 @@
 MSG_CLASSIFY_T* GPS_CreateGPS(char* handlername)
 {
 	MSG_CLASSIFY_T *pRoot = MSG_CreateRoot();
-	MSG_CLASSIFY_T *pGPS, *pDevs, *pHandler;
 	if(pRoot)
 	{
-		pHandler =MSG_AddJSONClassify(pRoot, handlername, NULL, false);
-		pGPS =MSG_AddIoTClassify(pHandler, TAG_GPS_ROOT, NULL, false);
-		pDevs = MSG_AddIoTClassify(pGPS, TAG_GPS_DEVICE_GROUP, "1.0", false);
+		MSG_CLASSIFY_T *pGPS = NULL;
+		MSG_CLASSIFY_T *pHandler = MSG_AddJSONClassify(pRoot, handlername, NULL, false);
+		pGPS = MSG_AddIoTClassify(pHandler, TAG_GPS_ROOT, NULL, false);
+		MSG_AddIoTClassify(pGPS, TAG_GPS_DEVICE_GROUP, NULL, false);
 	}
 	return pRoot;
 }

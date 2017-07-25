@@ -20,6 +20,8 @@ int AdvLog_Configure_GetDynamicGray();
 int AdvLog_Configure_GetDynamicInfo();
 const char *AdvLog_Configure_GetPath();
 int AdvLog_Configure_GetLimit();
+int AdvLog_Configure_GetFiles();
+const char *AdvLog_Configure_Name();
 int AdvLog_Configure_Hide_Enable();
 int AdvLog_Configure_Is_Hiden(int level);
 

@@ -24,6 +24,7 @@ typedef struct {
 		
 		//configure
 		int limit;
+		int files;
 		char path[256];
 		int staticLevel;
 		int staticInfo;
@@ -40,6 +41,7 @@ AdvLogConf defaultconf = {
 	"",					//configureFile
 	"",					//configureName
 	102400,				//limit
+	100,                 //files
 	"./logs",			//path
 	5,					//staticLevel
 	1,					//staticInfo
@@ -117,6 +119,7 @@ inline static void AdvLog_Configure_Default(AdvLogConf *conf) {
 	conf->dynamicGray = 0;
 	memset(conf->hide,0,sizeof(conf->hide));
 	conf->limit = 102400;
+	conf->files = 100;
 	conf->flush = 0;
 }
 
@@ -148,6 +151,15 @@ static void AdvLog_Configure_Assign_From_JSON(AdvLogConf *conf, AdvJSON json) {
 	value = json[conf->configureName]["limit"].Value();
 	if(value != "NULL") {
 		conf->limit = atoi(value.c_str());
+	}
+	
+	value = json[conf->configureName]["files"].Value();
+	if(value != "NULL") {
+		conf->files = atoi(value.c_str());
+		if(conf->files < 0 )
+			conf->files = 2;
+		else if ( conf->files > 200 )
+			conf->files = 200;
 	}
 	
 	value = json[conf->configureName]["static"]["level"].Value();
@@ -196,9 +208,10 @@ static void AdvLog_Configure_Export_To_File(AdvLogConf *conf, char *filename) {
 	AdvJSON json("{}");
 #if __cplusplus > 199711L
 	AdvJSONCreator C(json);
-	json.New()["default"][{"path","limit", "static", "dynamic"}] = {
+	json.New()["default"][{"path","limit", "files", "static", "dynamic"}] = {
 		conf->path,
 		conf->limit,
+		conf->files,
 		C[{"level","information"}]({
 			(conf->staticGray == 1 ? -conf->staticLevel : conf->staticLevel),
 			conf->staticInfo
@@ -212,6 +225,7 @@ static void AdvLog_Configure_Export_To_File(AdvLogConf *conf, char *filename) {
 #else
 	json.New()["default"]["path"] = conf->path;
 	json.New()["default"]["limit"] = conf->limit;
+	json.New()["default"]["files"] = conf->files;
 	json.New()["default"]["static"]["level"] = (conf->staticGray == 1 ? -conf->staticLevel : conf->staticLevel);
 	json.New()["default"]["static"]["information"] = conf->staticInfo;
 	json.New()["default"]["dynamic"]["level"] = (conf->dynamicGray == 1 ? -conf->dynamicLevel : conf->dynamicLevel);
@@ -239,6 +253,7 @@ static void PrintHelp() {
 	printf("Option -b {level string}: Hide DYNAMIC message (default:\"\", example:\"1,3,5\")\n");
 	printf("\n");
 	printf("Option -l [limit]: set file max size (unit: byte)(default:102400)\n");
+	printf("Option -c [files]: set file max number (unit: count)(default:100)\n");
 	printf("Option -x {path}: set log files path (default:./logs)\n");
 	printf("Option -f: import configure file\n");
 	printf("Option -e: export configure file\n");
@@ -261,7 +276,7 @@ int AdvLog_Configure_OptParser(int argc, char **argv, int pid) {
 		conf = AdvLog_Configure_Attach(pid);
 	}
 	//printf("<%s,%d>\n",__FILE__,__LINE__);
-	while ((c = getopt (argc, argv, "p:s:i:d:j:b:l:x:vf:e:n:h?")) != -1) {
+	while ((c = getopt (argc, argv, "p:s:i:d:j:b:l:c:x:vf:e:n:h?")) != -1) {
 		//printf("<%s,%d> c = %c\n",__FILE__,__LINE__,c);
 		switch (c)
 		{
@@ -323,6 +338,17 @@ int AdvLog_Configure_OptParser(int argc, char **argv, int pid) {
 					printf("Error: pid must be the first parameter.\n");
 				}
 			break;
+			case 'c':
+				if(pid > 0) {
+					conf->files = atoi(optarg);
+					if(conf->files < 0 )
+						conf->files = 2;
+					else if ( conf->files > 200 )
+						conf->files = 200;
+				} else {
+					printf("Error: pid must be the first parameter.\n");
+				}
+			break;
 			case 'x':
 				if(pid > 0) {
 					strncpy(conf->path, optarg, sizeof(conf->path));
@@ -338,6 +364,7 @@ int AdvLog_Configure_OptParser(int argc, char **argv, int pid) {
 					printf("[d]Dynamic Level: %d\n", conf->dynamicGray == 0 ? conf->dynamicLevel : -conf->dynamicLevel);
 					printf("[j]Dynamic Info: %d\n", conf->dynamicInfo);
 					printf("[l]Limit: %d\n", conf->limit);
+					printf("[c]Files: %d\n", conf->files);
 					printf("[f]Configure file: %s\n", conf->configureFile);
 					printf("[n]Configure name: %s\n", conf->configureName);
 					printf("[b]Hide: %s\n", conf->hide);
@@ -443,6 +470,17 @@ int AdvLog_Configure_GetLimit() {
 	if(configure == NULL) return 0;
 	return configure->limit;
 }
+
+int AdvLog_Configure_GetFiles() {
+	if(configure == NULL) return 0;
+	return configure->files;
+}
+
+const char *AdvLog_Configure_Name() {
+	if(configure == NULL) return NULL;
+	return configure->configureName;
+}
+
 int AdvLog_Configure_Hide_Enable() {
 	if(configure == NULL) return 0;
 	return configure->hide[0] == 0 ? 0 : 1;

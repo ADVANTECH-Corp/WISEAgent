@@ -161,3 +161,4 @@ int pkg_parser_recv_message_parse(void* data, int datalen, susiaccess_packet_bod
 	cJSON_Delete(root);
 	return true;
 }
+

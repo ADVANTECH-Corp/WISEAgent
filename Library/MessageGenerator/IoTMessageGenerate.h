@@ -12,6 +12,7 @@ typedef enum{
 #ifdef __cplusplus
 extern "C" {
 #endif
+	long long IoT_GetTimeTick();
 
 	MSG_CLASSIFY_T* IoT_CreateRoot(char* handlerName);
 	MSG_CLASSIFY_T* IoT_AddGroup(MSG_CLASSIFY_T* pNode, char* groupName);
@@ -42,8 +43,16 @@ extern "C" {
 	void IoT_ReleaseAll(MSG_CLASSIFY_T* pRoot);
 
 	char *IoT_PrintCapability(MSG_CLASSIFY_T* pRoot);
+	char *IoT_PrintFullCapability(MSG_CLASSIFY_T* pRoot, char *agentID);
 	char *IoT_PrintData(MSG_CLASSIFY_T* pRoot);
+	char *IoT_PrintFullData(MSG_CLASSIFY_T* pRoot, char *agentID);
 	char *IoT_PrintSelectedData(MSG_CLASSIFY_T* pRoot, char* reqItems);
+	char *IoT_PrintFullSelectedData(MSG_CLASSIFY_T* pRoot, char* reqItems, char *agentID);
+
+	void IoT_SetDataChangeCallback(MSG_CLASSIFY_T* pRoot, AttributeChangedCbf on_datachanged, void* pRev1);
+
+	char *IoT_GetReadWriteString(IoT_READWRITE_MODE readwritemode);
+	IoT_READWRITE_MODE IoT_GetReadWriteMode(char* readwritemode);
 
 #ifdef __cplusplus
 }

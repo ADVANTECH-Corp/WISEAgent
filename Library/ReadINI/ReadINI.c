@@ -128,3 +128,9 @@ int GetIniKeyInt(char *title,char *key,char *filename)
 {
     return atoi(GetIniKeyString(title,key,filename));
 }
+
+//Get a Double Float Value From INI file
+double GetIniKeyDouble(char *title,char *key,char *filename)
+{
+    return atof(GetIniKeyString(title,key,filename));
+}

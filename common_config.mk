@@ -25,10 +25,11 @@ application_LIBSDIR := $(LIB_DIR)/Log \
                        $(LIB_DIR)/SAHandlerLoader \
                        $(LIB_DIR)/SAGeneralHandler \
                        $(LIB_DIR)/MessageGenerator \
-					   $(LIB_DIR)/ReadINI
+		       $(LIB_DIR)/ReadINI \
+		       $(LIB_DIR)/HandlerKernel
                  
 MODULE_DIR := $(PROJECT_ROOT_DIR)/Sample
-module_LIBDIR := $(MODULE_DIR)/HandlerSample $(MODULE_DIR)/Modbus_Handler
+module_LIBDIR := $(MODULE_DIR)/HandlerSample $(MODULE_DIR)/ModbusSample
 shared_LIBDIR := 
 
 

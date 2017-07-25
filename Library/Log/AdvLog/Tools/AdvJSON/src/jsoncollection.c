@@ -21,6 +21,7 @@ void GC_Release() {
 	JSONGarbage *tail = NULL;
 	JSONGarbage *prev;
 	JSONode *node;
+
 	if(gc == NULL)
 		return;
 	tail = gc->tail;

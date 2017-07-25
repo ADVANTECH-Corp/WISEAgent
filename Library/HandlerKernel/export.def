@@ -5,6 +5,9 @@ EXPORTS
 	HandlerKernel_Uninitialize
 	
 	HandlerKernel_SetCapability
+	HandlerKernel_LockCapability
+	HandlerKernel_UnlockCapability
+	
 	HandlerKernel_AutoReportStart
 	HandlerKernel_AutoReportStop
 	
@@ -23,3 +26,28 @@ EXPORTS
 	
 	HandlerKernel_GetSensorData
 	HandlerKernel_SetSensorData
+	
+	HandlerKernelEx_Initialize
+	HandlerKernelEx_Uninitialize
+	
+	HandlerKernelEx_SetCapability
+	HandlerKernelEx_LockCapability
+	HandlerKernelEx_UnlockCapability
+	
+	HandlerKernelEx_AutoReportStart
+	HandlerKernelEx_AutoReportStop
+	
+	HandlerKernelEx_SetAutoReportFilter
+	HandlerKernelEx_SendAutoReportOnce
+	
+	HandlerKernelEx_LiveReportStart
+	HandlerKernelEx_ParseRecvCMDWithSessionID
+	
+	HandlerKernelEx_SetThreshold
+	HandlerKernelEx_DeleteAllThreshold
+	HandlerKernelEx_StartThresholdCheck
+	HandlerKernelEx_StopThresholdCheck
+	HandlerKernelEx_SetThresholdTrigger
+	
+	HandlerKernelEx_GetSensorData
+	HandlerKernelEx_SetSensorData

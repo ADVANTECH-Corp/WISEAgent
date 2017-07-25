@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<XMLConfigSettings><BaseSettings>
+<ModuleNum>1</ModuleNum>
+<ModuleName1>ModbusSample</ModuleName1><ModulePath1>\module\ModbusSample.dll</ModulePath1><ModuleEnable1>TRUE</ModuleEnable1>
+</BaseSettings></XMLConfigSettings>

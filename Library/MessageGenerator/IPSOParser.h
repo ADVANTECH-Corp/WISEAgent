@@ -8,6 +8,8 @@ extern "C" {
 
 bool transfer_parse_ipso(const char* data, MSG_CLASSIFY_T *pGroup);
 
+bool transfer_get_ipso_handlername(const char* data, char* handlerName);
+
 #ifdef __cplusplus
 }
 #endif

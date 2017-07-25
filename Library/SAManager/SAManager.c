@@ -14,6 +14,7 @@
 #include "util_path.h"
 #include "util_string.h"
 //#include "statequeue.h"
+#include "SADataSync.h"
 
 #define DEF_CALLBACKREQ_TOPIC			"/cagent/admin/%s/agentcallbackreq"	/*Subscribe*/
 #define DEF_ACTIONACK_TOPIC				"/cagent/admin/%s/agentactionack"	/*Subscribe*/
@@ -30,13 +31,14 @@
 
 SALoader_Interface* g_pSALoader = NULL;
 SAGeneral_Interface* g_SAGeneral = NULL;
+SADataSync_Interface* g_SADataSync = NULL;
 Handler_List_t g_handlerList;
 PUBLISHCB g_publishCB = NULL;
 SUBSCRIBECB g_subscribeCB = NULL;
 CONNECTSERVERCB g_connectserverCB = NULL;
 DISCONNECTCB g_disconnectCB = NULL;
 SENDOSINFOCB g_sendosinfoCB = NULL;
-int g_iConnStatus = 0;
+int g_iConnStatus = 1;
 LOGHANDLE g_samanagerlogger = NULL;
 
 susiaccess_agent_conf_body_t * g_pConfig = NULL;
@@ -275,12 +277,14 @@ susiaccess_packet_body_t * SAManager_WrapAutoReportPacket(Handler_info const * p
 {
 	susiaccess_packet_body_t* packet = NULL;
 
+	cJSON* oproot = NULL;
 	cJSON* node = NULL;
 	cJSON* root = NULL;
 	cJSON* pfinfoNode = NULL;
 	char* buff = NULL;
 	char* data = NULL;
 	int length = 0;
+	time_t t = time(NULL);
 
 	if(plugin == NULL)
 		return packet;
@@ -308,6 +312,24 @@ susiaccess_packet_body_t * SAManager_WrapAutoReportPacket(Handler_info const * p
 	}
 	cJSON_Delete(node);
 	cJSON_AddItemToObject(root, "data", pfinfoNode);
+
+	oproot = cJSON_CreateObject();
+	if(oproot)
+	{
+		cJSON_AddNumberToObject(oproot,"$date",(unsigned long long)t*1000);
+	}
+	if(root)
+	{		
+		if(root->child)
+		{
+			if(root->child->child)
+			{
+				cJSON_AddItemToObject(root->child->child,"opTS", cJSON_Duplicate(oproot, 1));
+			}
+		}	
+	}
+	cJSON_Delete(oproot);
+
 	buff = cJSON_PrintUnformatted(root);
 	cJSON_Delete(root);
 	length = strlen(buff);
@@ -395,6 +417,10 @@ AGENT_SEND_STATUS SAManager_SendAutoReport( HANDLE const handle,
 	else
 		result = cagent_callback_null;
 
+	if(g_SADataSync)
+		if(g_SADataSync->DataSync_Insert_Rep_API)
+			g_SADataSync->DataSync_Insert_Rep_API(handle,packet->content,topicStr, result);
+
 	SAManager_Redirect(handle, packet);
 
 	if(packet->content)
@@ -407,12 +433,14 @@ susiaccess_packet_body_t * SAManager_WrapCapabilityPacket(Handler_info const * p
 {
 	susiaccess_packet_body_t* packet = NULL;
 
+	cJSON* oproot = NULL;
 	cJSON* node = NULL;
 	cJSON* root = NULL;
 	cJSON* pfinfoNode = NULL;
 	char* buff = NULL;
 	char* data = NULL;
 	int length = 0;
+	time_t t = time(NULL);
 
 	if(plugin == NULL)
 		return packet;
@@ -439,6 +467,19 @@ susiaccess_packet_body_t * SAManager_WrapCapabilityPacket(Handler_info const * p
 	}
 	cJSON_Delete(node);
 	cJSON_AddItemToObject(root, "infoSpec", pfinfoNode);
+
+	oproot = cJSON_CreateObject();
+	if(oproot)
+	{
+		cJSON_AddNumberToObject(oproot,"$date",(unsigned long long)t*1000);
+	}
+	if(root)
+	{
+		if(root->child)
+			if(root->child->child)
+				cJSON_AddItemToObject(root->child->child,"opTS",oproot);
+	}
+
 	buff = cJSON_PrintUnformatted(root);
 	cJSON_Delete(root);
 	length = strlen(buff);
@@ -487,6 +528,7 @@ AGENT_SEND_STATUS SAManager_SendCapability( HANDLE const handle,
 		return result;
 	}
 	sprintf(topicStr, DEF_ACTIONREQ_TOPIC, plugin->agentInfo->devId);
+
 	if(g_publishCB)
 	{
 		if(g_publishCB(topicStr, 0, 0, packet) == 0)
@@ -496,6 +538,10 @@ AGENT_SEND_STATUS SAManager_SendCapability( HANDLE const handle,
 	}
 	else
 		result = cagent_callback_null;
+
+	if(g_SADataSync)
+		if(g_SADataSync->DataSync_Insert_Cap_API)
+			g_SADataSync->DataSync_Insert_Cap_API(handle,packet->content,topicStr, result);
 
 	if(packet->content)
 		free(packet->content);
@@ -783,7 +829,7 @@ void SAMANAGER_API SAManager_Initialize(susiaccess_agent_conf_body_t * config, s
 
 	memset(&g_handlerList, 0, sizeof(Handler_List_t));
 
-	keepalive_initialize(&g_handlerList, g_samanagerlogger);
+	keepalive_initialize(&g_handlerList, workdir, g_samanagerlogger);
 	/*Load Handler Loader*/	
 	g_pSALoader = hlloader_initialize(workdir, config, profile, loghandle);
 	if(g_pSALoader)
@@ -819,6 +865,12 @@ void SAMANAGER_API SAManager_Initialize(susiaccess_agent_conf_body_t * config, s
 			hlloader_handlerinfo_add(g_pSALoader, &g_handlerList, &GlobalPlugin);
 		}
 		hlloader_handler_load(g_pSALoader, &g_handlerList, workdir);
+
+		g_SADataSync=SADataSync_Initialize(workdir,loghandle);
+		if(g_SADataSync)
+			if(g_SADataSync->DataSync_Initialize_API)
+				g_SADataSync->DataSync_Initialize_API(workdir,&g_handlerList,loghandle);
+
 		hlloader_handler_start(g_pSALoader, &g_handlerList);
 	}
 }
@@ -864,11 +916,21 @@ void SAMANAGER_API SAManager_Uninitialize()
 		g_pProfile = NULL;
 	}
 */
+
+	if(g_SADataSync)
+		if(g_SADataSync->DataSync_Uninitialize_API)
+			g_SADataSync->DataSync_Uninitialize_API();
+	if(g_SADataSync)
+		if(SADataSync_Uninitialize(g_SADataSync))
+			g_SADataSync=NULL;
 }
 
 void SAMANAGER_API SAManager_SetPublishCB(PUBLISHCB func)
 {
 	g_publishCB = func;
+	if(g_SADataSync)
+		if(g_SADataSync->DataSync_SetFuncCB_API)
+			g_SADataSync->DataSync_SetFuncCB_API(g_publishCB);
 }
 
 void SAMANAGER_API SAManager_SetSubscribeCB(SUBSCRIBECB func)
@@ -915,6 +977,24 @@ void SAMANAGER_API SAManager_UpdateConnectState(int status)
 {
 	//if(g_iConnStatus == status)  /*Server redundancy need to count how many times connect failed!*/
 	//	return;
+
+	time_t t=time(NULL);
+	if(g_iConnStatus==1 && status!=1)
+		if(g_SADataSync)
+			if(g_SADataSync->DataSync_Set_LostTime_API)
+				g_SADataSync->DataSync_Set_LostTime_API((unsigned long long)t);
+	
+
+	if(g_iConnStatus!=1 && status==1) // 0 -> 1 or 2 -> 1
+	{
+		if(g_SADataSync)
+		{
+			if(g_SADataSync->DataSync_Set_ReConTime_API)
+				g_SADataSync->DataSync_Set_ReConTime_API((unsigned long long)t);
+		}
+	}	
+
+
 	g_iConnStatus = status;
 
 	/*if(conf)

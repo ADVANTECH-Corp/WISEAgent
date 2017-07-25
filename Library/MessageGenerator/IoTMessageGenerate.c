@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include "cJSON.h"
 
 #pragma region Add_Resource
 MSG_CLASSIFY_T* IoT_CreateRoot(char* handlerName)
@@ -96,6 +98,27 @@ char* IoT_GetReadWriteString(IoT_READWRITE_MODE readwritemode)
 		break;
 	}
 	return readwrite;
+}
+
+IoT_READWRITE_MODE IoT_GetReadWriteMode(char* readwritemode)
+{
+	IoT_READWRITE_MODE mode = IoT_NODEFINE;
+	if(readwritemode == NULL)
+		return mode;
+
+	if(strcmp(readwritemode, "r") == 0)
+	{
+		mode = IoT_READONLY;
+	}
+	else if(strcmp(readwritemode, "w") == 0)
+	{
+		mode = IoT_WRITEONLY;
+	}
+	else if(strcmp(readwritemode, "w") == 0)
+	{
+		mode = IoT_READWRITE;
+	}
+	return mode;
 }
 
 bool IoT_SetDoubleValue(MSG_ATTRIBUTE_T* attr, double value, IoT_READWRITE_MODE readwritemode, char *unit)
@@ -267,12 +290,74 @@ char *IoT_PrintCapability(MSG_CLASSIFY_T* pRoot)
 	return MSG_PrintUnformatted(pRoot);
 }
 
+char *IoT_PrintFullCapability(MSG_CLASSIFY_T* pRoot, char *agentID)
+{
+	cJSON* root = NULL;
+	cJSON* target = NULL;
+	cJSON* susCmd = NULL;
+	char* data = NULL;
+	long long tick = 0;
+
+	if(pRoot == NULL || agentID == NULL)
+		return NULL;
+	data = MSG_PrintUnformatted(pRoot);
+	root = cJSON_Parse(data);
+	free(data);
+	if(!root) return NULL;
+	
+	target =  cJSON_CreateObject();
+	susCmd = cJSON_CreateObject();
+	cJSON_AddItemToObject(target, "susiCommData", susCmd);
+	cJSON_AddItemToObject(susCmd, "infoSpec", cJSON_Duplicate(root, 1));
+	cJSON_Delete(root);
+	cJSON_AddNumberToObject(susCmd, "commCmd", 2052);
+	cJSON_AddStringToObject(susCmd, "agentID", agentID);
+	cJSON_AddStringToObject(susCmd, "handlerName", "general");
+	tick = (long long) time((time_t *) NULL);
+	cJSON_AddNumberToObject(susCmd, "sendTS", tick);
+	data = cJSON_PrintUnformatted(target);
+	cJSON_Delete(target);
+	return data;
+}
+
 char *IoT_PrintData(MSG_CLASSIFY_T* pRoot)
 {
 	int size = 8;
 	char* filter[] ={"n", "bn", "v","sv","bv","id","StatusCode","sessionID"};
 	
 	return MSG_PrintWithFiltered(pRoot,filter,size);
+}
+
+char *IoT_PrintFullData(MSG_CLASSIFY_T* pRoot, char *agentID)
+{
+	cJSON* root = NULL;
+	cJSON* target = NULL;
+	cJSON* susCmd = NULL;
+	char* data = NULL;
+	int size = 8;
+	char* filter[] ={"n", "bn", "v","sv","bv","id","StatusCode","sessionID"};
+	long long tick = 0;
+
+	if(pRoot == NULL || agentID == NULL)
+		return NULL;
+	data = MSG_PrintWithFiltered(pRoot,filter,size);
+	root = cJSON_Parse(data);
+	free(data);
+	if(!root) return NULL;
+	
+	target =  cJSON_CreateObject();
+	susCmd = cJSON_CreateObject();
+	cJSON_AddItemToObject(target, "susiCommData", susCmd);
+	cJSON_AddItemToObject(susCmd, "data", cJSON_Duplicate(root, 1));
+	cJSON_Delete(root);
+	cJSON_AddNumberToObject(susCmd, "commCmd", 2055);
+	cJSON_AddStringToObject(susCmd, "agentID", agentID);
+	cJSON_AddStringToObject(susCmd, "handlerName", "general");
+	tick = (long long) time((time_t *) NULL);
+	cJSON_AddNumberToObject(susCmd, "sendTS", tick);
+	data = cJSON_PrintUnformatted(target);
+	cJSON_Delete(target);
+	return data;
 }
 
 char *IoT_PrintSelectedData(MSG_CLASSIFY_T* pRoot, char* reqItems)
@@ -283,5 +368,41 @@ char *IoT_PrintSelectedData(MSG_CLASSIFY_T* pRoot, char* reqItems)
 	return MSG_PrintSelectedWithFiltered(pRoot,filter,size, reqItems);
 }
 
+char *IoT_PrintFullSelectedData(MSG_CLASSIFY_T* pRoot, char* reqItems, char *agentID)
+{
+	cJSON* root = NULL;
+	cJSON* target = NULL;
+	cJSON* susCmd = NULL;
+	char* data = NULL;
+	int size = 8;
+	char* filter[] ={"n", "bn", "v","sv","bv","id","StatusCode","sessionID"};
+	long long tick = 0;
+
+	if(pRoot == NULL || agentID == NULL)
+		return NULL;
+	data = MSG_PrintSelectedWithFiltered(pRoot,filter,size, reqItems);
+	root = cJSON_Parse(data);
+	free(data);
+	if(!root) return NULL;
+	
+	target =  cJSON_CreateObject();
+	susCmd = cJSON_CreateObject();
+	cJSON_AddItemToObject(target, "susiCommData", susCmd);
+	cJSON_AddItemToObject(susCmd, "data", cJSON_Duplicate(root, 1));
+	cJSON_Delete(root);
+	cJSON_AddNumberToObject(susCmd, "commCmd", 2055);
+	cJSON_AddStringToObject(susCmd, "agentID", agentID);
+	cJSON_AddStringToObject(susCmd, "handlerName", "general");
+	tick = (long long) time((time_t *) NULL);
+	cJSON_AddNumberToObject(susCmd, "sendTS", tick);
+	data = cJSON_PrintUnformatted(target);
+	cJSON_Delete(target);
+	return data;
+}
+
+void IoT_SetDataChangeCallback(MSG_CLASSIFY_T* pRoot, AttributeChangedCbf on_datachanged, void* pRev1)
+{
+	MSG_SetDataChangeCallback(pRoot, on_datachanged, pRev1);
+}
 
 #pragma endregion Generate_JSON 

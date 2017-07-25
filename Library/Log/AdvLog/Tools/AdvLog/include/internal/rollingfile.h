@@ -11,6 +11,7 @@
 void RollFile_Open(const char *path);
 void RollFile_SetLimit(int byte);
 FILE *RollFile_Check();
+void RemoveOverFiles();
 void RollFile_StreamIn(const char *stream, int length);
 void RollFile_Flush(int length);
 void RollFile_RefreshConfigure();

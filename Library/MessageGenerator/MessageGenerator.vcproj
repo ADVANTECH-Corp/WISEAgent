@@ -251,6 +251,18 @@
 					RelativePath="..\..\Platform\Windows\wrapper.h"
 					>
 				</File>
+				<Filter
+					Name="sys"
+					>
+					<File
+						RelativePath="..\..\Platform\Windows\sys\time.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\Platform\Windows\sys\time.h"
+						>
+					</File>
+				</Filter>
 			</Filter>
 		</Filter>
 		<Filter

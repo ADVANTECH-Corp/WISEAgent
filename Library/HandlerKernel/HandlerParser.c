@@ -26,6 +26,7 @@
 #define REPLY_DEL_ALL_THR				"delAllThrRep"
 #define REPLY_THR_CHECK_STATUS			"thrCheckStatus"
 #define REPLY_THR_CHECK_MSG				"thrCheckMsg"
+#define REPLY_SENSOR_ITEMS				"sensorInfoList"
 
 #define REPORT_INTERVAL_SEC				"autoUploadIntervalSec"
 #define REPORT_INTERVAL_MS				"autoUploadIntervalMs"
@@ -203,7 +204,7 @@ bool HandlerParser_ParseThrItemInfo(cJSON * jsonObj, thr_item_info_t * pThrItemI
 		pSubItem = cJSON_GetObjectItem(jsonObj, REQUEST_ITEMS_NAME);
 		if(pSubItem)
 		{
-			strcpy(pThrItemInfo->pathname, pSubItem->valuestring);
+			strncpy(pThrItemInfo->pathname, pSubItem->valuestring, sizeof(pThrItemInfo->pathname));
 
 			pThrItemInfo->isEnable = false;
 				
@@ -287,7 +288,7 @@ bool HandlerParser_ParseThrItemInfo(cJSON * jsonObj, thr_item_info_t * pThrItemI
 	return bRet;
 }
 
-bool HandlerParser_ParseThrItemList(cJSON * jsonObj, thr_item_list thrItemList, void (*on_triggered)(struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr))
+bool HandlerParser_ParseThrItemList(cJSON * jsonObj, thr_item_list thrItemList, void (*on_triggered)(void* qtrigger, struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr))
 {
 	bool bRet = false;
 	if(jsonObj == NULL || thrItemList == NULL) return bRet;
@@ -322,7 +323,7 @@ bool HandlerParser_ParseThrItemList(cJSON * jsonObj, thr_item_list thrItemList, 
 	return bRet;
 }
 
-bool HANDLERPARSER_API HandlerParser_ParseThrInfo(char * thrJsonStr, thr_item_list thrList, void (*on_triggered)(struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr))
+bool HANDLERPARSER_API HandlerParser_ParseThrInfo(char * thrJsonStr, thr_item_list thrList, void (*on_triggered)(void* qtrigger, struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr))
 {
 	bool bRet = false;
 	if(thrJsonStr == NULL || thrList == NULL) return bRet;
@@ -429,6 +430,7 @@ bool HANDLERPARSER_API HandlerParser_PackSensorCMDRep(char * repStr, char * sess
 {
 	cJSON* pReqRoot = NULL;
 	cJSON *pReqItemRoot;
+	cJSON *pENode;
 	char * out = NULL;
 	int outLen = 0;
 
@@ -437,7 +439,10 @@ bool HANDLERPARSER_API HandlerParser_PackSensorCMDRep(char * repStr, char * sess
 	if(pReqItemRoot == NULL) return false;
 	pReqRoot = cJSON_CreateObject();
 	cJSON_AddStringToObject(pReqRoot, AGENTINFO_SESSIONID, sessionID);
-	cJSON_AddItemToObject(pReqRoot, REQUEST_SENSOR_ITEMS, pReqItemRoot);
+	pENode = cJSON_CreateObject();
+	cJSON_AddItemToObject(pENode, REQUEST_ITEMS_LIST, pReqItemRoot);
+	cJSON_AddItemToObject(pReqRoot, REPLY_SENSOR_ITEMS, pENode);
+	
 
 	out = cJSON_PrintUnformatted(pReqRoot);
 	outLen = strlen(out) + 1;

@@ -168,6 +168,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\HandlerKernelEx.c"
+				>
+			</File>
+			<File
 				RelativePath=".\HandlerParser.c"
 				>
 			</File>
@@ -187,6 +191,10 @@
 			>
 			<File
 				RelativePath=".\HandlerKernel.h"
+				>
+			</File>
+			<File
+				RelativePath=".\HandlerKernelEx.h"
 				>
 			</File>
 			<File
@@ -243,9 +251,10 @@
 		<Filter
 			Name="Platform"
 			>
-			<Filter
-				Name="Windows"
+			<File
+				RelativePath="..\..\Platform\AdvPlatform.h"
 				>
+			</File>
 				<File
 					RelativePath="..\..\Platform\basequeue.c"
 					>
@@ -262,6 +271,14 @@
 					RelativePath="..\..\Platform\Windows\pthread.h"
 					>
 				</File>
+			<File
+				RelativePath="..\..\Platform\Windows\stdbool.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Platform\Windows\unistd.h"
+				>
+			</File>
 				<Filter
 					Name="sys"
 					>
@@ -273,7 +290,6 @@
 						RelativePath="..\..\Platform\Windows\sys\time.h"
 						>
 					</File>
-				</Filter>
 			</Filter>
 		</Filter>
 	</Files>
