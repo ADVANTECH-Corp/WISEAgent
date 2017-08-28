@@ -172,7 +172,10 @@ void smloader_connect_status_update(int status)
 	g_status = status;*/
 	evtqueue_clear();
 	if(!evtqueue_push(status))
+	{
+		if(g_SAManager)
 		SAClientLog(g_SAManager->logHandle, Warning, "Cannot push Event Status: %d!", status);
+	}
 }
 
 void smloader_internal_subscribe()

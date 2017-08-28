@@ -328,6 +328,85 @@
 				CommandLine="copy &quot;$(SolutionDir)Library3rdParty\openssl-1.0.1h.win32\bin\*.dll&quot; &quot;$(TargetDir)&quot;&#x0D;&#x0A;copy &quot;$(SolutionDir)Library3rdParty\pthreads.win32\Pre-built.2\dll\x86\pthreadVC2.dll&quot; &quot;$(TargetDir)&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
+		<Configuration
+			Name="Release-Lite|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="2"
+			CharacterSet="2"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories="&quot;$(SolutionDir)Platform&quot;;&quot;$(SolutionDir)Platform\Windows&quot;;&quot;$(SolutionDir)Library\cJSON&quot;;&quot;$(SolutionDir)Library\Log&quot;;&quot;$(SolutionDir)Include&quot;;&quot;$(SolutionDir)Library\Base64&quot;;&quot;$(SolutionDir)Library\DES&quot;;&quot;$(SolutionDir)Library\MQTTHelper&quot;"
+				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS;WIN32;_WINDOWS;EXPORT_DLL"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+				CompileAs="1"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories="&quot;$(SolutionDir)Library\cJSON&quot;"
+				ModuleDefinitionFile="export.def"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="copy &quot;$(SolutionDir)Library3rdParty\openssl-1.0.1h.win32\bin\*.dll&quot; &quot;$(TargetDir)&quot;&#x0D;&#x0A;copy &quot;$(SolutionDir)Library3rdParty\pthreads.win32\Pre-built.2\dll\x86\pthreadVC2.dll&quot; &quot;$(TargetDir)&quot;&#x0D;&#x0A;"
+			/>
+		</Configuration>
 	</Configurations>
 	<References>
 		<ProjectReference

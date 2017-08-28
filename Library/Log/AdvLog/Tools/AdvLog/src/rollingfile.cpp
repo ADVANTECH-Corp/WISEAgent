@@ -202,17 +202,29 @@ char * GetFolderPath()
 	char workingdir[512]={0};
 	static char temp[512]={0};
 	char *p = strrchr(pathname,'/');
-	if( p != NULL && ( p - sp ) > 3 )
+	
+	memset(temp, 0, sizeof(temp));
+
+	if( p ==  NULL )
+		p = strrchr(pathname,'\\');
+
+	if( p != NULL && ( ( p - sp ) >=2 || p == sp )) /* z:\,   / ,    */
 		return pathname;
-	else {
+	else
+	{		
+		if( p == NULL )
+			p = sp;   //  logs
+		else if ( *(p+1) != '0' )
+				++p;  //  p=p+1  => /logs
+
 			getcwd(workingdir,512);
 #if defined(_WIN32)
-			snprintf(temp,sizeof(temp),"%s\\%s",workingdir,p+1);
+			snprintf(temp,sizeof(temp),"%s\\%s",workingdir,p);
 #else
-		   snprintf(temp,sizeof(temp),"%s/%s",workingdir,p+1);
+		   snprintf(temp,sizeof(temp),"%s/%s",workingdir,p);
 #endif
-			return temp;
 	}
+			return temp;
 }
 
 
@@ -223,9 +235,12 @@ void  RemoveOverFiles()
 	int i = 0, j = 0;
 	int rmfs = 0;
 	char allfiles[210][256];
-	char temp[256]={0};
-	sprintf(temp,"%s",GetFolderPath());
-	tinydir_open(&dir, temp );
+	char logfolder[256]={0};
+	sprintf(logfolder,"%s",GetFolderPath());
+
+	if( strlen(logfolder) <= 0 ) return;
+
+	tinydir_open(&dir, logfolder );
 
 	sprintf(name, "__%s", AdvLog_Configure_Name() );
 
@@ -265,16 +280,15 @@ void  RemoveOverFiles()
 		{           
 			if(strcmp(allfiles[i],allfiles[j]) > 0)
 			{            
-				memset(temp,0,256);
-				strcpy(temp,allfiles[i]);      
+				memset(logfolder,0,256);
+				strcpy(logfolder,allfiles[i]);      
 				strcpy(allfiles[i],allfiles[j]);      
-				strcpy(allfiles[j],temp);    
+				strcpy(allfiles[j],logfolder);    
 			}    
 		} 
 	}
 
 
-	printf("file count total=%d max:%d\n", count, files);
 	if( count > files )
 		rmfs = count - files;
 

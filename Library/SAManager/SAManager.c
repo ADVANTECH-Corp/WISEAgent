@@ -324,6 +324,8 @@ susiaccess_packet_body_t * SAManager_WrapAutoReportPacket(Handler_info const * p
 		{
 			if(root->child->child)
 			{
+				cJSON* opts = cJSON_GetObjectItem(root->child->child, "opTS");
+				if(opts == NULL)
 				cJSON_AddItemToObject(root->child->child,"opTS", cJSON_Duplicate(oproot, 1));
 			}
 		}	
@@ -477,7 +479,11 @@ susiaccess_packet_body_t * SAManager_WrapCapabilityPacket(Handler_info const * p
 	{
 		if(root->child)
 			if(root->child->child)
+			{
+				cJSON* opts = cJSON_GetObjectItem(root->child->child, "opTS");
+				if(opts == NULL)
 				cJSON_AddItemToObject(root->child->child,"opTS",oproot);
+	}
 	}
 
 	buff = cJSON_PrintUnformatted(root);
@@ -579,13 +585,19 @@ susiaccess_packet_body_t * SAManager_WrapEventNotifyPacket(Handler_info const * 
 	free(data);
 	if(node)
 	{
+		cJSON* severityNode  = NULL;
+		cJSON* handlerNode = NULL;
 		cJSON* chNode = node->child;
 		while(chNode)
 		{
 			cJSON_AddItemToObject(pfinfoNode, chNode->string, cJSON_Duplicate(chNode, true));	
 			chNode = chNode->next;
 		}
+		severityNode = cJSON_GetObjectItem(pfinfoNode, "severity");
+		if(severityNode == NULL)
 		cJSON_AddNumberToObject(pfinfoNode, "severity", severity);
+		handlerNode = cJSON_GetObjectItem(pfinfoNode, "handler");
+		if(handlerNode == NULL)
 		cJSON_AddStringToObject(pfinfoNode, "handler", plugin->Name);
 	}
 	cJSON_Delete(node);

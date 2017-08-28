@@ -324,6 +324,84 @@
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
+		<Configuration
+			Name="Release-Lite|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="2"
+			CharacterSet="2"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories="&quot;$(SolutionDir)Platform&quot;;&quot;$(SolutionDir)Platform\Windows&quot;;&quot;$(SolutionDir)Library3rdParty\libxml2-2.7.8.win32\include&quot;;&quot;$(SolutionDir)Include&quot;;&quot;$(SolutionDir)Library\Log&quot;;&quot;$(SolutionDir)Library\cJSON&quot;;&quot;$(SolutionDir)Library\MD5&quot;;&quot;$(SolutionDir)Library\FtpHelper&quot;;&quot;$(SolutionDir)Library\SAConfig&quot;"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalDependencies="libxml2.lib"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories="$(SolutionDir)Library3rdParty\libxml2-2.7.8.win32\lib"
+				ModuleDefinitionFile="exports.def"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
 	</Configurations>
 	<References>
 		<ProjectReference
@@ -340,7 +418,7 @@
 		/>
 		<ProjectReference
 			ReferencedProjectIdentifier="{DA6F56B4-06A4-441D-AD70-AC5A7D51FADB}"
-			RelativePathToProject=".\Library3rdParty\curl-7.37.1\projects\Windows\VC9\lib\libcurl.vcproj"
+			RelativePathToProject=".\Library3rdParty\curl-7.47.1\projects\Windows\VC9\lib\libcurl.vcproj"
 		/>
 		<ProjectReference
 			ReferencedProjectIdentifier="{8E375E7A-9A5E-4FEA-971A-96ACA3257505}"

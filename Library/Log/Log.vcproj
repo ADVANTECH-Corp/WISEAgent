@@ -282,6 +282,76 @@
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
+		<Configuration
+			Name="Release-Lite|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="2"
+			CharacterSet="2"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories="&quot;$(SolutionDir)Library\Log\AdvLog\Tools\AdvLog\include&quot;;&quot;$(SolutionDir)Library\Log\AdvLog\Tools\AdvLog\include\internal&quot;;&quot;$(SolutionDir)Library\Log\AdvLog\Tools\AdvJSON\inc&quot;;&quot;$(SolutionDir)Library\Log\AdvLog\Tools\AdvPlatform\include&quot;;&quot;$(SolutionDir)Library\Log\AdvLog\Tools\AdvPlatform\include\windows&quot;"
+				PreprocessorDefinitions="WIN32;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;SALOG_EXPORTS;ADVLOG_EXPORTS"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+				CallingConvention="0"
+				CompileAs="2"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
 	</Configurations>
 	<References>
 	</References>
@@ -386,11 +456,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\AdvLog\Tools\AdvLog\include\AdvLog.h"
+				RelativePath=".\AdvLog.h"
 				>
 			</File>
 			<File
-				RelativePath=".\AdvLog.h"
+				RelativePath=".\AdvLog\Tools\AdvLog\include\AdvLog.h"
 				>
 			</File>
 			<File
