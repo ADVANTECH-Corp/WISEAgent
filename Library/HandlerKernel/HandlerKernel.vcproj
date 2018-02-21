@@ -142,6 +142,70 @@
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
+		<Configuration
+			Name="Release-Lite|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="4"
+			CharacterSet="2"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories="&quot;$(SolutionDir)Platform&quot;;&quot;$(SolutionDir)Platform\Windows&quot;;&quot;$(SolutionDir)Library\Log&quot;;&quot;$(SolutionDir)Library\cJSON&quot;;&quot;$(SolutionDir)Library\MessageGenerator&quot;;&quot;$(SolutionDir)Include&quot;"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;HANDLERKERNEL_EXPORTS;_CRT_SECURE_NO_WARNINGS"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+				CompileAs="1"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
 	</Configurations>
 	<References>
 		<ProjectReference
@@ -168,6 +232,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\HandlerKernelEx.c"
+				>
+			</File>
+			<File
 				RelativePath=".\HandlerParser.c"
 				>
 			</File>
@@ -187,6 +255,10 @@
 			>
 			<File
 				RelativePath=".\HandlerKernel.h"
+				>
+			</File>
+			<File
+				RelativePath=".\HandlerKernelEx.h"
 				>
 			</File>
 			<File
@@ -243,9 +315,10 @@
 		<Filter
 			Name="Platform"
 			>
-			<Filter
-				Name="Windows"
+			<File
+				RelativePath="..\..\Platform\AdvPlatform.h"
 				>
+			</File>
 				<File
 					RelativePath="..\..\Platform\basequeue.c"
 					>
@@ -262,6 +335,14 @@
 					RelativePath="..\..\Platform\Windows\pthread.h"
 					>
 				</File>
+			<File
+				RelativePath="..\..\Platform\Windows\stdbool.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Platform\Windows\unistd.h"
+				>
+			</File>
 				<Filter
 					Name="sys"
 					>
@@ -273,7 +354,6 @@
 						RelativePath="..\..\Platform\Windows\sys\time.h"
 						>
 					</File>
-				</Filter>
 			</Filter>
 		</Filter>
 	</Files>

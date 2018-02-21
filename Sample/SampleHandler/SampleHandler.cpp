@@ -150,7 +150,9 @@ MSG_CLASSIFY_T * CreateCapability()
 	MSG_CLASSIFY_T*myGroup = IoT_AddGroup(myCapability, "Monitor");
 	MSG_ATTRIBUTE_T* attr = NULL;
 	/*Open text file and parse the JSON string into Message Structure*/
+	HandlerKernel_LockCapability();
 	ParseReceivedData(myGroup);
+	HandlerKernel_UnlockCapability();
 	return myCapability;
 }
 
@@ -173,10 +175,15 @@ static DWORD WINAPI SampleHandlerReportThread(void *args)
 		{
 			MSG_CLASSIFY_T *myGroup = IoT_FindGroup(g_Capability, "Monitor");
 			if(myGroup)
+			{
+				HandlerKernel_LockCapability();
 				ParseReceivedData(myGroup);
+				HandlerKernel_UnlockCapability();
+			}
 		}
 		Sleep(mInterval);
 	}
+	ExitThread(0);
     return 0;
 }
 
@@ -294,6 +301,7 @@ void Handler_Uninitialize()
 	if(g_HandlerContex.threadHandler)
 	{
 		g_HandlerContex.isThreadRunning = false;
+		TerminateThread(g_HandlerContex.threadHandler,0);
 		WaitForSingleObject(g_HandlerContex.threadHandler, INFINITE);
 		CloseHandle(g_HandlerContex.threadHandler);
 		g_HandlerContex.threadHandler = NULL;
@@ -318,7 +326,7 @@ void Handler_Uninitialize()
 int HANDLER_API Handler_Get_Status( HANDLER_THREAD_STATUS * pOutStatus )
 {
 	int iRet = handler_fail; 
-	SampleHLog(Debug, " %s> Get Status", strHandlerName);
+	//SampleHLog(Debug, " %s> Get Status", strHandlerName);
 	if(!pOutStatus) return iRet;
 	/*user need to implement their thread status check function*/
 	*pOutStatus = g_status;
@@ -415,6 +423,11 @@ void HANDLER_API Handler_Recv(char * const topic, void* const data, const size_t
 		return;
 	switch(cmdID)
 	{
+	case hk_get_capability_req:
+		if(!g_Capability)
+			g_Capability = CreateCapability();
+		HandlerKernel_SetCapability(g_Capability, true);
+		break;
 	case hk_auto_upload_req:
 		/*start live report*/
 		HandlerKernel_LiveReportStart(hk_auto_upload_rep, (char*)data);

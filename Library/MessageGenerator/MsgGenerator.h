@@ -38,6 +38,20 @@ typedef enum {
 	class_type_array = 2,
 } class_type;
 
+typedef void  (*AttributeChangedCbf) ( void* attribute, void* pRev1); 
+
+typedef struct ext_attr{
+	char name[DEF_NAME_SIZE];
+	attr_type type;
+	union
+	{
+		double v;
+		bool bv;
+		char* sv;
+	};
+	struct ext_attr *next;
+}EXT_ATTRIBUTE_T;
+
 typedef struct msg_attr{
 	char name[DEF_NAME_SIZE];
 	char readwritemode[DEF_ASM_SIZE];
@@ -55,6 +69,12 @@ typedef struct msg_attr{
 	bool bSensor;
 	bool bNull;
 	struct msg_attr *next;
+
+	struct ext_attr *extra;
+
+	AttributeChangedCbf on_datachanged;
+	void *pRev1;
+
 }MSG_ATTRIBUTE_T;
 
 typedef struct msg_class{
@@ -65,13 +85,19 @@ typedef struct msg_class{
 	struct msg_attr *attr_list;
 	struct msg_class *sub_list;
 	struct msg_class *next;
+
+	AttributeChangedCbf on_datachanged;
+	void *pRev1;
+
 }MSG_CLASSIFY_T;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+	long long MSG_GetTimeTick();
 
 	MSG_CLASSIFY_T* MSG_CreateRoot();
+	MSG_CLASSIFY_T* MSG_CreateRootEx(AttributeChangedCbf onchanged, void* pRev1);
 	void MSG_ReleaseRoot(MSG_CLASSIFY_T* classify);
 
 	MSG_CLASSIFY_T* MSG_AddClassify(MSG_CLASSIFY_T *pNode, char const* name, char const* version, bool bArray, bool isIoT);
@@ -100,12 +126,19 @@ extern "C" {
 	char *MSG_PrintWithFiltered(MSG_CLASSIFY_T* msg, char** filter, int length);
 	char *MSG_PrintSelectedWithFiltered(MSG_CLASSIFY_T* msg, char** filter, int length, char* reqItems);
 	
+	void MSG_SetDataChangeCallback(MSG_CLASSIFY_T* msg, AttributeChangedCbf on_datachanged, void* pRev1);
+	
 
 #define MSG_AddJSONClassify(pNode, name, version, bArray) MSG_AddClassify(pNode, name, version, bArray, false);
 #define MSG_AddIoTClassify(pNode, name, version, bArray) MSG_AddClassify(pNode, name, version, bArray, true);
 
 #define MSG_AddJSONAttribute(pClass, attrname) MSG_AddAttribute(pClass, attrname, false);
 #define MSG_AddIoTSensor(pClass, attrname) MSG_AddAttribute(pClass, attrname, true);
+	bool MSG_AppendIoTSensorAttributeDouble(MSG_ATTRIBUTE_T* attr, const char* attrname, double value);
+	bool MSG_AppendIoTSensorAttributeBool(MSG_ATTRIBUTE_T* attr, const char* attrname, bool bvalue);
+	bool MSG_AppendIoTSensorAttributeString(MSG_ATTRIBUTE_T* attr, const char* attrname, char *svalue);
+	bool MSG_AppendIoTSensorAttributeTimestamp(MSG_ATTRIBUTE_T* attr, const char* attrname, unsigned int value);
+	bool MSG_AppendIoTSensorAttributeDate(MSG_ATTRIBUTE_T* attr, const char* attrname, char *svalue);
 
 #define MSG_FindJSONAttribute(pClass, attrname) MSG_FindAttribute(pClass, attrname, false);
 #define MSG_FindIoTSensor(pClass, attrname) MSG_FindAttribute(pClass, attrname, true);

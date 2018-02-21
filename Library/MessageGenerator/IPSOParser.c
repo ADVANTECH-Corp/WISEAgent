@@ -85,6 +85,13 @@ void transfer_sensor_generate(cJSON* target, MSG_CLASSIFY_T *pGroup)
 		{
 			IoT_SetBoolValue(pCurAttr, true, readwritemode);
 		}
+		else if(data = transfer_node_find(target, TAG_BOOLEAN, cJSON_Number))
+		{
+			if(data->valueint == 0)
+				IoT_SetBoolValue(pCurAttr, false, readwritemode);
+			else
+				IoT_SetBoolValue(pCurAttr, true, readwritemode);
+		}
 		else if(data = transfer_node_find(target, TAG_STRING, cJSON_String))
 		{
 			IoT_SetStringValue(pCurAttr, data->valuestring, readwritemode);
@@ -149,23 +156,33 @@ void transfer_sensor_generate(cJSON* target, MSG_CLASSIFY_T *pGroup)
 void transfer_group_generate(cJSON* target, MSG_CLASSIFY_T *pGroup)
 {
 	MSG_CLASSIFY_T *pCurNode = NULL;
-	cJSON*child = NULL;
+	cJSON *child = NULL;
+	cJSON *current = NULL;
 	
 	if(!target) return;
 
+	while(target) 
+	{
 	if(target->type == cJSON_Object)
 	{
 		cJSON* baseName = transfer_node_find(target, TAG_BASE_NAME, cJSON_String);
 		if(!baseName)
 		{
 			transfer_group_generate(target->child, pGroup);
-			return;
+				target = target->next;
+				continue;
+				/*pCurNode = IoT_FindGroup(pGroup, target->string);
+				if(!pCurNode)
+					pCurNode = IoT_AddGroup(pGroup, target->string);*/
 		}
+			else
+			{
 		if(!baseName->valuestring) return;
 		pCurNode = IoT_FindGroup(pGroup, baseName->valuestring);
 		if(!pCurNode)
 			pCurNode = IoT_AddGroup(pGroup, baseName->valuestring);
 	}
+		}
 	else if(target->type == cJSON_Array)
 	{
 		pCurNode = IoT_FindGroup(pGroup, target->string);
@@ -173,7 +190,10 @@ void transfer_group_generate(cJSON* target, MSG_CLASSIFY_T *pGroup)
 			pCurNode = IoT_AddGroupArray(pGroup, target->string);
 	}
 	else
-		return;
+		{
+			target = target->next;
+			continue;
+		}
 
 	child = target->child;
 	while(child)
@@ -267,6 +287,8 @@ void transfer_group_generate(cJSON* target, MSG_CLASSIFY_T *pGroup)
 		}
 		child = child->next;
 	}
+		target = target->next;
+	}
 }
 
 bool transfer_parse_ipso(const char* data, MSG_CLASSIFY_T *pGroup)
@@ -282,4 +304,29 @@ bool transfer_parse_ipso(const char* data, MSG_CLASSIFY_T *pGroup)
 	transfer_group_generate(target, pGroup);
 	cJSON_Delete(root);
 	return true;
+}
+
+bool transfer_get_ipso_handlername(const char* data, char* handlerName)
+{
+	cJSON* root = NULL;
+	cJSON* target = NULL;
+	bool bRet = false;
+	if(!data) return false;
+
+	if(!handlerName) return false;
+	
+	root = cJSON_Parse(data);
+	if(!root) return false;
+
+	if(!root->child) return false;
+
+	target = transfer_node_find(root->child, TAG_BASE_NAME, cJSON_String);
+	if(!target)
+	{
+		strcpy(handlerName, root->child->string);
+		bRet = true;
+	}
+
+	cJSON_Delete(root);
+	return bRet;
 }

@@ -102,4 +102,5 @@ bool util_copy_file(char const *sourcefile, char const *targetfile)
 	{
 		return CopyFileEx(sourcefile, targetfile, NULL, NULL, FALSE, COPY_FILE_FAIL_IF_EXISTS)?true:false;
 	}
+	return false;
 }

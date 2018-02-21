@@ -12,6 +12,7 @@
 #include "tool.h"
 #include "configure.h"
 #include "rollingfile.h"
+#include "tinydir.h"
 
 
 //size_t strftime(char *s, size_t max, const char *format, const struct tm *tm);
@@ -19,9 +20,11 @@ static char pathname[256] = "logs";
 static char lastfile[256];
 static char filename[256];
 static char fullname[256];
+static char name[64] = "";
 static FILE *logfile = NULL;
 static int limit = 102400;
 static int currentcount;
+static int files = 100; // 100KB * 100 ~= 10 MB
 static int staticGray = 0;
 
 bool isDirExist(const std::string& path)
@@ -103,9 +106,9 @@ inline static void RollFile_New() {
 		strftime(timestr, sizeof(timestr), "%Y-%m-%d_%H-%M-%S", &timetm);
 		snprintf(filename, sizeof(filename), "%s@%d", timestr, pid < 0 ? 0 : pid);
 		if(staticGray == 0) {
-			snprintf(fullname, sizeof(fullname), "%s/%s.html", pathname, filename);
+			snprintf(fullname, sizeof(fullname), "%s/%s%s.html", pathname, filename,name);
 		} else {
-			snprintf(fullname, sizeof(fullname), "%s/%s.log", pathname, filename);
+			snprintf(fullname, sizeof(fullname), "%s/%s%s.log", pathname, filename,name);
 	}
 		oldt = t;
 	} while(access(fullname,F_OK) == 0);
@@ -129,7 +132,9 @@ void RollFile_SetLimit(int byte) {
 
 void RollFile_RefreshConfigure() {
 	limit = AdvLog_Configure_GetLimit();
+	files = AdvLog_Configure_GetFiles();
 	strncpy(pathname,AdvLog_Configure_GetPath(),sizeof(pathname));
+	RemoveOverFiles();
 }
 
 inline static void RollFile_Rolling() {
@@ -189,6 +194,107 @@ void RollFile_StreamIn(const char *stream, int length) {
 		RollFile_Rolling();
 		currentcount = 0;
 	}
+}
+
+char * GetFolderPath()
+{
+	char *sp = pathname;
+	char workingdir[512]={0};
+	static char temp[512]={0};
+	char *p = strrchr(pathname,'/');
+	
+	memset(temp, 0, sizeof(temp));
+
+	if( p ==  NULL )
+		p = strrchr(pathname,'\\');
+
+	if( p != NULL && ( ( p - sp ) >=2 || p == sp )) /* z:\,   / ,    */
+		return pathname;
+	else
+	{		
+		if( p == NULL )
+			p = sp;   //  logs
+		else if ( *(p+1) != '0' )
+				++p;  //  p=p+1  => /logs
+
+			getcwd(workingdir,512);
+#if defined(_WIN32)
+			snprintf(temp,sizeof(temp),"%s\\%s",workingdir,p);
+#else
+		   snprintf(temp,sizeof(temp),"%s/%s",workingdir,p);
+#endif
+	}
+			return temp;
+}
+
+
+void  RemoveOverFiles()
+{
+	tinydir_dir dir;
+	int count = 0;
+	int i = 0, j = 0;
+	int rmfs = 0;
+	char allfiles[210][256];
+	char logfolder[256]={0};
+	sprintf(logfolder,"%s",GetFolderPath());
+
+	if( strlen(logfolder) <= 0 ) return;
+
+	tinydir_open(&dir, logfolder );
+
+	sprintf(name, "__%s", AdvLog_Configure_Name() );
+
+	if( !strncmp( name, "__default", 9 ) || strlen(name) == 2 )
+		memset(name, 0, sizeof(name));
+	
+	i = strlen(name);
+
+	while (dir.has_next)
+	{
+		tinydir_file file;
+		tinydir_readfile(&dir, &file);
+		
+		if (file.is_dir) {
+		//	printf("/");
+		} else {			
+			if( count < 200 )  // check my file name
+			{
+				// only remove specific application's files
+				if( ( strstr( file.name, name ) && strstr( name, "__" ) )  || ( i == 0 && !strstr(file.name, "__") ) )
+				{
+					memset(allfiles[count],0,256);
+					snprintf(allfiles[count],256,"%s",file.path);
+					++count;
+				}
+			}
+		}
+
+		tinydir_next(&dir);
+	}
+
+	tinydir_close(&dir);
+
+	for(i = 0;i < count;i++) 
+	{
+		for(j = i+1; j < count; j++)
+		{           
+			if(strcmp(allfiles[i],allfiles[j]) > 0)
+			{            
+				memset(logfolder,0,256);
+				strcpy(logfolder,allfiles[i]);      
+				strcpy(allfiles[i],allfiles[j]);      
+				strcpy(allfiles[j],logfolder);    
+			}    
+		} 
+	}
+
+
+	if( count > files )
+		rmfs = count - files;
+
+	for( i = 0; i < rmfs ; i ++ )
+		remove( allfiles[i] );
+
 }
 
 void RollFile_Flush(int length) {

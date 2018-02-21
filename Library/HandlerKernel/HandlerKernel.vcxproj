@@ -18,13 +18,14 @@
     <ProjectGuid>{636F4F8F-194F-439D-AD32-7B23FF7FA7E9}</ProjectGuid>
     <RootNamespace>HandlerKernel</RootNamespace>
     <Keyword>Win32Proj</Keyword>
-    <WindowsTargetPlatformVersion>10.0.10240.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Template|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
@@ -36,6 +37,7 @@
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -101,6 +103,7 @@
     <ClCompile Include="..\..\Platform\Windows\pthread.c" />
     <ClCompile Include="..\..\Platform\Windows\sys\time.cpp" />
     <ClCompile Include="HandlerKernel.c" />
+    <ClCompile Include="HandlerKernelEx.c" />
     <ClCompile Include="HandlerParser.c" />
     <ClCompile Include="HandlerThreshold.c" />
     <ClCompile Include="triggerqueue.c" />
@@ -113,6 +116,7 @@
     <ClInclude Include="..\..\Platform\Windows\pthread.h" />
     <ClInclude Include="..\..\Platform\Windows\sys\time.h" />
     <ClInclude Include="HandlerKernel.h" />
+    <ClInclude Include="HandlerKernelEx.h" />
     <ClInclude Include="HandlerParser.h" />
     <ClInclude Include="HandlerThreshold.h" />
     <ClInclude Include="resource.h" />

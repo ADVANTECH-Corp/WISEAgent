@@ -51,14 +51,12 @@
 
 MSG_CLASSIFY_T* DEV_CreateAgentInfoBody(MSG_CLASSIFY_T* pSusiComm, susiaccess_agent_profile_body_t* profile)
 {
-	MSG_ATTRIBUTE_T *attr;
-
 	if(!profile || !pSusiComm)
 		return pSusiComm;
 
 	if(pSusiComm)
 	{
-		attr = MSG_AddJSONAttribute(pSusiComm, TAG_AGENTINFO_DEVID);
+		MSG_ATTRIBUTE_T *attr = MSG_AddJSONAttribute(pSusiComm, TAG_AGENTINFO_DEVID);
 		if(attr)
 			MSG_SetStringValue(attr, profile->devId, NULL);
 
@@ -104,12 +102,10 @@ MSG_CLASSIFY_T* DEV_CreateAgentInfoBody(MSG_CLASSIFY_T* pSusiComm, susiaccess_ag
 MSG_CLASSIFY_T* DEV_CreateAgentInfo(susiaccess_agent_profile_body_t* profile)
 {
 	MSG_CLASSIFY_T *pRoot = MSG_CreateRoot();
-	MSG_CLASSIFY_T *pSusiComm;
-	long long tick = 0;
-	MSG_ATTRIBUTE_T *attr;
 	if(pRoot)
 	{
-		pSusiComm = MSG_AddJSONClassify(pRoot, TAG_SUSICOMM_ROOT, NULL, false);
+		MSG_ATTRIBUTE_T *attr;
+		MSG_CLASSIFY_T *pSusiComm = MSG_AddJSONClassify(pRoot, TAG_SUSICOMM_ROOT, NULL, false);
 
 		DEV_CreateAgentInfoBody(pSusiComm, profile);
 
@@ -136,7 +132,7 @@ MSG_CLASSIFY_T* DEV_CreateAgentInfo(susiaccess_agent_profile_body_t* profile)
 		attr = MSG_AddJSONAttribute(pSusiComm, TAG_SUSICOMM_TIMESTAMP);
 		if(attr)
 		{
-			tick = (long) time((time_t *) NULL);
+			long long tick = (long) time((time_t *) NULL);
 			MSG_SetTimestampValue(attr, tick, NULL);
 		}
 	}
@@ -157,12 +153,10 @@ char *DEV_GetAgentInfoTopic(char* devID)
 MSG_CLASSIFY_T* DEV_CreateWillMessage(susiaccess_agent_profile_body_t* profile)
 {
 	MSG_CLASSIFY_T *pRoot = MSG_CreateRoot();
-	MSG_CLASSIFY_T *pSusiComm;
-	long long tick = 0;
-	MSG_ATTRIBUTE_T *attr;
 	if(pRoot)
 	{
-		pSusiComm = MSG_AddJSONClassify(pRoot, TAG_SUSICOMM_ROOT, NULL, false);
+		MSG_ATTRIBUTE_T *attr;
+		MSG_CLASSIFY_T *pSusiComm = MSG_AddJSONClassify(pRoot, TAG_SUSICOMM_ROOT, NULL, false);
 
 		DEV_CreateAgentInfoBody(pSusiComm, profile);
 
@@ -189,7 +183,7 @@ MSG_CLASSIFY_T* DEV_CreateWillMessage(susiaccess_agent_profile_body_t* profile)
 		attr = MSG_AddJSONAttribute(pSusiComm, TAG_SUSICOMM_TIMESTAMP);
 		if(attr)
 		{
-			tick = (long long)time((time_t *) NULL);
+			long long tick = (long long)time((time_t *) NULL);
 			MSG_SetTimestampValue(attr, tick, NULL);
 		}
 	}
@@ -210,12 +204,11 @@ char *DEV_GetWillMessageTopic(char* devID)
 MSG_CLASSIFY_T* DEV_CreateOSInfo(susiaccess_agent_profile_body_t* profile)
 {
 	MSG_CLASSIFY_T *pRoot = MSG_CreateRoot();
-	MSG_CLASSIFY_T *pSusiComm, *pOSInfo = NULL;
-	long long tick = 0;
-	MSG_ATTRIBUTE_T *attr;
 	if(pRoot)
 	{
-		pSusiComm = MSG_AddJSONClassify(pRoot, TAG_SUSICOMM_ROOT, NULL, false);
+		MSG_ATTRIBUTE_T *attr;
+		MSG_CLASSIFY_T *pOSInfo;
+		MSG_CLASSIFY_T *pSusiComm = MSG_AddJSONClassify(pRoot, TAG_SUSICOMM_ROOT, NULL, false);
 
 		pOSInfo = MSG_AddJSONClassify(pSusiComm, TAG_OSINFO_ROOT, NULL, false);
 
@@ -274,7 +267,7 @@ MSG_CLASSIFY_T* DEV_CreateOSInfo(susiaccess_agent_profile_body_t* profile)
 		attr = MSG_AddJSONAttribute(pSusiComm, TAG_SUSICOMM_TIMESTAMP);
 		if(attr)
 		{
-			tick = (long long)time((time_t *) NULL);
+			long long tick = (long long)time((time_t *) NULL);
 			MSG_SetTimestampValue(attr, tick, NULL);
 		}
 	}
@@ -295,14 +288,12 @@ char *DEV_GetActionReqTopic(char* devID)
 MSG_CLASSIFY_T* DEV_CreateHandlerList(char* devID, char** handldelist, int count)
 {
 	MSG_CLASSIFY_T *pRoot = MSG_CreateRoot();
-	MSG_CLASSIFY_T *pSusiComm, *pHandlerList = NULL;
-	long long tick = 0;
-	int i=0;
-	MSG_ATTRIBUTE_T *attr;
 	if(pRoot)
 	{
-		pSusiComm = MSG_AddJSONClassify(pRoot, TAG_SUSICOMM_ROOT, NULL, false);
-
+		int i=0;
+		MSG_ATTRIBUTE_T *attr;
+		MSG_CLASSIFY_T *pHandlerList;
+		MSG_CLASSIFY_T *pSusiComm = MSG_AddJSONClassify(pRoot, TAG_SUSICOMM_ROOT, NULL, false);
 		pHandlerList = MSG_AddJSONClassify(pSusiComm, TAG_HANDLER_LIST, NULL, true);
 		for(i=0; i<count; i++)
 		{
@@ -329,7 +320,7 @@ MSG_CLASSIFY_T* DEV_CreateHandlerList(char* devID, char** handldelist, int count
 		attr = MSG_AddJSONAttribute(pSusiComm, TAG_SUSICOMM_TIMESTAMP);
 		if(attr)
 		{
-			tick = (long long)time((time_t *) NULL);
+			long long tick = (long long)time((time_t *) NULL);
 			MSG_SetTimestampValue(attr, tick, NULL);
 		}
 	}
@@ -371,13 +362,11 @@ MSG_CLASSIFY_T* DEV_CreateEventNotify(char* subtype, char* message)
 MSG_CLASSIFY_T* DEV_CreateFullEventNotify(char* devID, int severity, char* handler, char* subtype, char* message)
 {
 	MSG_CLASSIFY_T *pRoot = MSG_CreateRoot();
-	MSG_CLASSIFY_T *pSusiComm, *pEventNotify = NULL;
-	long long tick = 0;
-
-	MSG_ATTRIBUTE_T *attr;
 	if(pRoot)
 	{
-		pSusiComm = MSG_AddJSONClassify(pRoot, TAG_SUSICOMM_ROOT, NULL, false);
+		MSG_ATTRIBUTE_T *attr;
+		MSG_CLASSIFY_T *pEventNotify;
+		MSG_CLASSIFY_T *pSusiComm = MSG_AddJSONClassify(pRoot, TAG_SUSICOMM_ROOT, NULL, false);
 
 		pEventNotify = MSG_AddJSONClassify(pSusiComm, TAG_EVENT_NOTIFY, NULL, false);
 
@@ -413,7 +402,7 @@ MSG_CLASSIFY_T* DEV_CreateFullEventNotify(char* devID, int severity, char* handl
 		attr = MSG_AddJSONAttribute(pSusiComm, TAG_SUSICOMM_TIMESTAMP);
 		if(attr)
 		{
-			tick = (long long)time((time_t *) NULL);
+			long long tick = (long long)time((time_t *) NULL);
 			MSG_SetTimestampValue(attr, tick, NULL);
 		}
 	}

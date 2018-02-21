@@ -4,6 +4,18 @@
 #include <stdlib.h>
 #include "cJSON.h"
 #include "AdvPlatform.h"
+#include <math.h>
+#include <time.h>
+#include <sys/time.h>
+
+long long MSG_GetTimeTick()
+{
+	long long tick = 0;
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	tick = (long long)tv.tv_sec*1000 + (long long)tv.tv_usec/1000;
+	return tick;
+}
 
 #pragma region Add_Resource
 MSG_CLASSIFY_T* MSG_CreateRoot()
@@ -13,6 +25,19 @@ MSG_CLASSIFY_T* MSG_CreateRoot()
 	{
 		memset(pMsg, 0, sizeof(MSG_CLASSIFY_T));
 		pMsg->type = class_type_root;
+	}
+	return pMsg;
+}
+
+MSG_CLASSIFY_T* MSG_CreateRootEx(AttributeChangedCbf onchanged, void* pRev1)
+{
+	MSG_CLASSIFY_T *pMsg = malloc(sizeof(MSG_CLASSIFY_T));
+	if(pMsg)
+	{
+		memset(pMsg, 0, sizeof(MSG_CLASSIFY_T));
+		pMsg->type = class_type_root;
+		pMsg->on_datachanged = onchanged;
+		pMsg->pRev1 = pRev1;
 	}
 	return pMsg;
 }
@@ -52,6 +77,9 @@ MSG_CLASSIFY_T* MSG_AddClassify(MSG_CLASSIFY_T *pNode, char const* name, char co
 				pLastNode = pLastNode->next;
 			}
 			pLastNode->next = pCurNode;
+
+			pCurNode->on_datachanged = pNode->on_datachanged;
+			pCurNode->pRev1 = pNode->pRev1;
 		}
 	}
 	return pCurNode;
@@ -88,6 +116,8 @@ MSG_ATTRIBUTE_T* MSG_AddAttribute(MSG_CLASSIFY_T* pClass, char const* attrname, 
 				lastAttr = lastAttr->next;
 			}
 			lastAttr->next = curAttr;
+			curAttr->on_datachanged = pClass->on_datachanged;
+			curAttr->pRev1 = pClass->pRev1;
 		}
 	}
 	return curAttr;
@@ -105,13 +135,31 @@ void ReleaseAttribute(MSG_ATTRIBUTE_T* attr)
 		if(attr->sv)
 		{
 			free(attr->sv);
+		}
+		attr->sv = NULL;
+		attr->on_datachanged = NULL;
+		attr->pRev1 = NULL;
+	}
 			
+	{
+		EXT_ATTRIBUTE_T* extattr = attr->extra;
+		while(extattr)
+		{
+			EXT_ATTRIBUTE_T* extnext = extattr->next;
+			if(extattr->type == attr_type_date || extattr->type == attr_type_string)
+			{
+				if(extattr->sv)
+				{
+					free(extattr->sv);
 		}
 		attr->sv = NULL;
 	}
+			free(extattr);
+			extattr = extnext;
+		}
+	}
 
 	free(attr);
-	attr = NULL;
 }
 
 void ReleaseClassify(MSG_CLASSIFY_T* classify)
@@ -140,8 +188,9 @@ void ReleaseClassify(MSG_CLASSIFY_T* classify)
 		curSubtype = nxtSubtype;
 	}
 
+	classify->on_datachanged = NULL;
+	classify->pRev1 = NULL;
 	free(classify);
-	classify = NULL;
 }
 
 bool MSG_DelAttribute(MSG_CLASSIFY_T* pNode, char* name, bool isSensorData)
@@ -215,6 +264,76 @@ void MSG_ReleaseRoot(MSG_CLASSIFY_T* classify)
 #pragma endregion Release_Resource
 
 #pragma region Find_Resource
+MSG_CLASSIFY_T* MSG_FindClassifyWithoutPrefix(MSG_CLASSIFY_T* pNode, char const* name)
+{
+	char* prefix = NULL;
+	char* index = 0;
+	MSG_CLASSIFY_T* curClass = NULL;
+	MSG_CLASSIFY_T* nxtClass = NULL;
+	if(!pNode || !name)
+		return curClass;
+	curClass = pNode->sub_list;
+	while (curClass)
+	{
+		nxtClass = curClass->next;
+
+		index = strstr(curClass->classname, "-");
+		if(index == 0)
+		{
+			curClass = nxtClass;
+			continue;
+		}
+
+		prefix = calloc(1, strlen(index));
+		strncpy(prefix, index+1, strlen(index)-1);
+
+
+		if(!strcmp(prefix, name))
+		{
+			free(prefix);
+			return curClass;
+		}
+		free(prefix);
+		curClass = nxtClass;
+	}
+	return NULL;
+}
+
+MSG_CLASSIFY_T* MSG_FindClassifyWithPrefix(MSG_CLASSIFY_T* pNode, char const* name)
+{
+	char* prefix = NULL;
+	char* index = 0;
+	MSG_CLASSIFY_T* curClass = NULL;
+	MSG_CLASSIFY_T* nxtClass = NULL;
+	if(!pNode || !name)
+		return curClass;
+	curClass = pNode->sub_list;
+	while (curClass)
+	{
+		nxtClass = curClass->next;
+
+		index = strstr(curClass->classname, "-");
+		if(index == 0)
+		{
+			curClass = nxtClass;
+			continue;
+		}
+
+		prefix = calloc(1, (index - curClass->classname + 1));
+		strncpy(prefix, curClass->classname, (index - curClass->classname));
+
+
+		if(!strcmp(prefix, name))
+		{
+			free(prefix);
+			return curClass;
+		}
+		free(prefix);
+		curClass = nxtClass;
+	}
+	return MSG_FindClassifyWithoutPrefix(pNode, name);
+}
+
 MSG_CLASSIFY_T* MSG_FindClassify(MSG_CLASSIFY_T* pNode, char const* name)
 {
 	MSG_CLASSIFY_T* curClass = NULL;
@@ -229,7 +348,7 @@ MSG_CLASSIFY_T* MSG_FindClassify(MSG_CLASSIFY_T* pNode, char const* name)
 			return curClass;
 		curClass = nxtClass;
 	}
-	return NULL;
+	return MSG_FindClassifyWithPrefix(pNode, name);
 }
 
 MSG_ATTRIBUTE_T* MSG_FindAttribute(MSG_CLASSIFY_T* root, char const* senname, bool isSensorData)
@@ -264,8 +383,14 @@ bool MSG_SetFloatValueWithMaxMin(MSG_ATTRIBUTE_T* attr, float value, char* readw
 
 bool MSG_SetDoubleValue(MSG_ATTRIBUTE_T* attr, double value, char* readwritemode, char *unit)
 {
+	bool bNotify = false;
 	if(!attr)
 		return false;
+	if(attr->type != attr_type_numeric)
+		bNotify = true;
+	else if(attr->v != value)
+		bNotify = true;
+
 	if((attr->type == attr_type_date || attr->type == attr_type_string) && !attr->bNull)
 	{
 		if(attr->sv)
@@ -280,13 +405,23 @@ bool MSG_SetDoubleValue(MSG_ATTRIBUTE_T* attr, double value, char* readwritemode
 		strncpy(attr->readwritemode, readwritemode, strlen(readwritemode));
 	if(unit)
 		strncpy(attr->unit, unit, strlen(unit));
+
+	if(bNotify)
+		if(attr->on_datachanged)
+			attr->on_datachanged(attr, attr->pRev1);
 	return true;
 }
 
 bool MSG_SetDoubleValueWithMaxMin(MSG_ATTRIBUTE_T* attr, double value, char* readwritemode, double max, double min, char *unit)
 {
+	bool bNotify = false;
 	if(!attr)
 		return false;
+	if(attr->type != attr_type_numeric)
+		bNotify = true;
+	else if(attr->v != value)
+		bNotify = true;
+
 	if((attr->type == attr_type_date || attr->type == attr_type_string) && !attr->bNull)
 	{
 		if(attr->sv)
@@ -303,13 +438,23 @@ bool MSG_SetDoubleValueWithMaxMin(MSG_ATTRIBUTE_T* attr, double value, char* rea
 		strncpy(attr->readwritemode, readwritemode, strlen(readwritemode));
 	if(unit)
 		strncpy(attr->unit, unit, strlen(unit));
+
+	if(bNotify)
+		if(attr->on_datachanged)
+			attr->on_datachanged(attr, attr->pRev1);
 	return true;
 }
 
 bool MSG_SetBoolValue(MSG_ATTRIBUTE_T* attr, bool bvalue, char* readwritemode)
 {
+	bool bNotify = false;
 	if(!attr)
 		return false;
+	if(attr->type != attr_type_boolean)
+		bNotify = true;
+	else if(attr->bv != bvalue)
+		bNotify = true;
+
 	if((attr->type == attr_type_date || attr->type == attr_type_string) && !attr->bNull)
 	{
 		if(attr->sv)
@@ -322,14 +467,23 @@ bool MSG_SetBoolValue(MSG_ATTRIBUTE_T* attr, bool bvalue, char* readwritemode)
 		strncpy(attr->readwritemode, readwritemode, strlen(readwritemode));
 	attr->bRange = false;
 	attr->bNull = false;
+
+	if(bNotify)
+		if(attr->on_datachanged)
+			attr->on_datachanged(attr, attr->pRev1);
 	return true;
 }
 
 bool MSG_SetStringValue(MSG_ATTRIBUTE_T* attr, char *svalue, char* readwritemode)
 {
 	int length = 0;
+	bool bNotify = false;
 	if(!attr)
 		return false;
+	if(attr->type != attr_type_string)
+		bNotify = true;
+	else if(strcmp(attr->sv,svalue)!=0)
+		bNotify = true;
 	
 	if((attr->type == attr_type_date || attr->type == attr_type_string) && !attr->bNull)
 	{
@@ -353,13 +507,22 @@ bool MSG_SetStringValue(MSG_ATTRIBUTE_T* attr, char *svalue, char* readwritemode
 		strncpy(attr->readwritemode, readwritemode, strlen(readwritemode));
 	attr->bRange = false;
 	
+	if(bNotify)
+		if(attr->on_datachanged)
+			attr->on_datachanged(attr, attr->pRev1);
 	return true;
 }
 
 bool MSG_SetTimestampValue(MSG_ATTRIBUTE_T* attr, unsigned int value, char* readwritemode)
 {
+	bool bNotify = false;
 	if(!attr)
 		return false;
+	if(attr->type != attr_type_timestamp)
+		bNotify = true;
+	else if(attr->v != value)
+		bNotify = true;
+
 	if((attr->type == attr_type_date || attr->type == attr_type_string) && !attr->bNull)
 	{
 		if(attr->sv)
@@ -372,14 +535,24 @@ bool MSG_SetTimestampValue(MSG_ATTRIBUTE_T* attr, unsigned int value, char* read
 		strncpy(attr->readwritemode, readwritemode, strlen(readwritemode));
 	attr->bRange = false;
 	attr->bNull = false;
+
+	if(bNotify)
+		if(attr->on_datachanged)
+			attr->on_datachanged(attr, attr->pRev1);
 	return true;
 }
 
 bool MSG_SetDateValue(MSG_ATTRIBUTE_T* attr, char *svalue, char* readwritemode)
 {
 	int length = 0;
+	bool bNotify = false;
 	if(!attr)
 		return false;
+	if(attr->type != attr_type_date)
+		bNotify = true;
+	else if(strcmp(attr->sv,svalue)!=0)
+		bNotify = true;
+
 	if((attr->type == attr_type_date || attr->type == attr_type_string) && !attr->bNull)
 	{
 		if(attr->sv)
@@ -401,14 +574,24 @@ bool MSG_SetDateValue(MSG_ATTRIBUTE_T* attr, char *svalue, char* readwritemode)
 	if(readwritemode)
 		strncpy(attr->readwritemode, readwritemode, strlen(readwritemode));
 	attr->bRange = false;
+
+	if(bNotify)
+		if(attr->on_datachanged)
+			attr->on_datachanged(attr, attr->pRev1);
 	return true;
 }
 
 bool MSG_SetNULLValue(MSG_ATTRIBUTE_T* attr, char* readwritemode)
 {
 	int length = 0;
+	bool bNotify = false;
 	if(!attr)
 		return false;
+	if(attr->type != attr_type_string)
+		bNotify = true;
+	else if(!attr->bNull)
+		bNotify = true;
+
 	if((attr->type == attr_type_date || attr->type == attr_type_string) && !attr->bNull)
 	{
 		if(attr->sv)
@@ -422,6 +605,9 @@ bool MSG_SetNULLValue(MSG_ATTRIBUTE_T* attr, char* readwritemode)
 		strncpy(attr->readwritemode, readwritemode, strlen(readwritemode));
 	attr->bRange = false;
 	
+	if(bNotify)
+		if(attr->on_datachanged)
+			attr->on_datachanged(attr, attr->pRev1);
 	return true;
 }
 #pragma endregion Find_Resource
@@ -488,6 +674,7 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 						if(MatchFilterString(TAG_MIN, filter, length))
 							cJSON_AddNumberToObject(pAttr, TAG_MIN, curAttr->min);
 					}
+					if(strlen(curAttr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
 	
@@ -510,11 +697,9 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 						else
 							cJSON_AddFalseToObject(pAttr, TAG_BOOLEAN);
 					}
-
+					if(strlen(curAttr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
-
-
 				}
 				break;
 			case attr_type_string:
@@ -531,6 +716,7 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 							cJSON_AddStringToObject(pAttr, TAG_STRING, curAttr->sv);
 						}
 					}
+					if(strlen(curAttr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
 				}
@@ -551,6 +737,7 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 							cJSON_AddStringToObject(pDateRoot, TAG_DATE, curAttr->sv);
 						}
 					}
+					if(strlen(curAttr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
 				}
@@ -568,6 +755,7 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 							cJSON_AddNumberToObject(pDateRoot, TAG_TIMESTAMP, curAttr->v);
 						}
 					}
+					if(strlen(curAttr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
 				}
@@ -576,6 +764,48 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 				{
 				}
 				break;
+			}
+
+			{
+				EXT_ATTRIBUTE_T* extattr = curAttr->extra;
+				while(extattr)
+				{
+					switch (extattr->type)
+					{
+					case attr_type_numeric:
+						cJSON_AddNumberToObject(pAttr, extattr->name, extattr->v);
+						break;
+					case attr_type_boolean:
+						if(extattr->bv)
+							cJSON_AddTrueToObject(pAttr, extattr->name);
+						else
+							cJSON_AddFalseToObject(pAttr, extattr->name);
+						break;
+					case attr_type_string:
+						cJSON_AddStringToObject(pAttr, extattr->name, extattr->sv);
+						break;
+					case  attr_type_date:
+						{
+							cJSON* pDateRoot = cJSON_CreateObject();
+							cJSON_AddItemToObject(pAttr, extattr->name, pDateRoot);
+							cJSON_AddStringToObject(pDateRoot, TAG_DATE, extattr->sv);
+						}
+						break;
+					case  attr_type_timestamp:
+						{
+							cJSON* pDateRoot = cJSON_CreateObject();
+							cJSON_AddItemToObject(pAttr, extattr->name, pDateRoot);
+							cJSON_AddNumberToObject(pDateRoot, TAG_TIMESTAMP, extattr->v);
+						}
+						break;
+					default:
+						{
+						}
+						break;
+					}
+					extattr = extattr->next;
+				}
+						
 			}
 		}
 		else
@@ -742,7 +972,7 @@ bool AddJSONClassify(cJSON *pRoot, MSG_CLASSIFY_T* msg, char** filter, int lengt
 	return true;
 }
 
-bool AddJSingleSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr, char** filter, int length)
+bool AddSingleJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr, char** filter, int length)
 {
 	cJSON* pAttr = NULL;
 	cJSON* pENode = NULL;
@@ -801,10 +1031,10 @@ bool AddJSingleSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr, char** filter,
 						if(MatchFilterString(TAG_MIN, filter, length))
 							cJSON_AddNumberToObject(pAttr, TAG_MIN, attr->min);
 					}
+				if(strlen(attr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
 	
-
 					if(strlen(attr->unit)>0)
 					{
 						if(MatchFilterString(TAG_UNIT, filter, length))
@@ -823,11 +1053,9 @@ bool AddJSingleSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr, char** filter,
 						else
 							cJSON_AddFalseToObject(pAttr, TAG_BOOLEAN);
 					}
-
+				if(strlen(attr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
-
-
 				}
 				break;
 			case attr_type_string:
@@ -844,6 +1072,7 @@ bool AddJSingleSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr, char** filter,
 							cJSON_AddStringToObject(pAttr, TAG_STRING, attr->sv);
 						}
 					}
+				if(strlen(attr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
 				}
@@ -864,6 +1093,7 @@ bool AddJSingleSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr, char** filter,
 							cJSON_AddStringToObject(pDateRoot, TAG_DATE, attr->sv);
 						}
 					}
+				if(strlen(attr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
 				}
@@ -881,6 +1111,7 @@ bool AddJSingleSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr, char** filter,
 							cJSON_AddNumberToObject(pDateRoot, TAG_TIMESTAMP, attr->v);
 						}
 					}
+				if(strlen(attr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
 				}
@@ -890,6 +1121,50 @@ bool AddJSingleSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr, char** filter,
 				}
 				break;
 			}
+
+		{
+			EXT_ATTRIBUTE_T* extattr = attr->extra;
+			while(extattr)
+			{
+				if(MatchFilterString(extattr->name, filter, length))
+				{
+					switch (attr->type)
+					{
+					case attr_type_numeric:
+						cJSON_AddNumberToObject(pAttr, extattr->name, extattr->v);
+						break;
+					case attr_type_boolean:
+						if(extattr->bv)
+							cJSON_AddTrueToObject(pAttr, extattr->name);
+						else
+							cJSON_AddFalseToObject(pAttr, extattr->name);
+						break;
+					case attr_type_string:
+						cJSON_AddStringToObject(pAttr, extattr->name, attr->sv);
+						break;
+					case  attr_type_date:
+						{
+							cJSON* pDateRoot = cJSON_CreateObject();
+							cJSON_AddItemToObject(pAttr, extattr->name, pDateRoot);
+							cJSON_AddStringToObject(pDateRoot, TAG_DATE, attr->sv);
+						}
+						break;
+					case  attr_type_timestamp:
+						{
+							cJSON* pDateRoot = cJSON_CreateObject();
+							cJSON_AddItemToObject(pAttr, extattr->name, pDateRoot);
+							cJSON_AddNumberToObject(pDateRoot, TAG_TIMESTAMP, attr->v);
+						}
+						break;
+					default:
+						{
+						}
+						break;
+					}
+				}
+				extattr = extattr->next;
+			}
+		}
 		}
 		else
 		{	
@@ -1062,7 +1337,7 @@ bool AddJSONClassifyWithSelected(cJSON *pRoot, MSG_CLASSIFY_T* msg, char** filte
 				cJSON* pChild = cJSON_GetObjectItem(pClass, name);
 				if(pChild == NULL)
 				{
-					AddJSingleSONAttribute(pClass, attr, filter, length);
+					AddSingleJSONAttribute(pClass, attr, filter, length);
 				}
 			}
 		}
@@ -1199,6 +1474,250 @@ bool MSG_IsAttributeExist(MSG_CLASSIFY_T *msg,char *path, bool isSensorData)
 		return true;
 	else 
 		return false;
+}
+
+void MSG_SetDataChangeCallback(MSG_CLASSIFY_T* msg, AttributeChangedCbf on_datachanged, void* pRev1)
+{
+	MSG_ATTRIBUTE_T* curAttr = NULL;
+
+	MSG_CLASSIFY_T* curClass = NULL;
+	MSG_CLASSIFY_T* nxtSubtype = NULL;
+
+	if(!msg)
+		return;
+
+	msg->on_datachanged = on_datachanged;
+	msg->pRev1 = pRev1;
+
+	curAttr = msg->attr_list;
+	while (curAttr)
+	{
+		curAttr->on_datachanged = on_datachanged;
+		curAttr->pRev1 = pRev1;
+		curAttr = curAttr->next;
+	}
+
+	curClass = msg->sub_list;
+	while (curClass)
+	{
+		MSG_SetDataChangeCallback(curClass, on_datachanged, pRev1);
+		curClass = curClass->next;
+	}
+
+}
+
+bool MSG_AppendIoTSensorAttributeDouble(MSG_ATTRIBUTE_T* attr, const char* attrname, double value)
+{
+	EXT_ATTRIBUTE_T *extattr = NULL,*extpre = NULL, *target = NULL;
+	if(!attr)
+		return false;
+	extattr = attr->extra;
+
+	while(extattr)
+	{
+		extpre = extattr;
+		if(strcmp(extattr->name, attrname)==0)
+		{
+			target = extattr;
+			break;
+		}
+		extattr = extattr->next;
+	}
+
+	if(target == NULL)
+	{
+		target = calloc(1, sizeof(EXT_ATTRIBUTE_T));
+		strcpy(target->name, attrname);
+
+		if(extpre == NULL)
+			attr->extra = target;
+		else
+			extpre->next = target;
+	}
+
+	if(target->type == attr_type_date || target->type == attr_type_string)
+	{
+		if(target->sv)
+			free(target->sv);
+		target->sv = NULL;
+	}
+	target->v = value;
+	target->type = attr_type_numeric;
+
+	return true;
+}
+
+bool MSG_AppendIoTSensorAttributeBool(MSG_ATTRIBUTE_T* attr, const char* attrname, bool bvalue)
+{
+	EXT_ATTRIBUTE_T *extattr = NULL,*extpre = NULL, *target = NULL;
+	if(!attr)
+		return false;
+	extattr = attr->extra;
+
+	while(extattr)
+	{
+		extpre = extattr;
+		if(strcmp(extattr->name, attrname)==0)
+		{
+			target = extattr;
+			break;
+		}
+		extattr = extattr->next;
+	}
+
+	if(target == NULL)
+	{
+		target = calloc(1, sizeof(EXT_ATTRIBUTE_T));
+		strcpy(target->name, attrname);
+
+		if(extpre == NULL)
+			attr->extra = target;
+		else
+			extpre->next = target;
+	}
+
+	if(target->type == attr_type_date || target->type == attr_type_string)
+	{
+		if(target->sv)
+			free(target->sv);
+		target->sv = NULL;
+	}
+	target->bv = bvalue;
+	target->type = attr_type_boolean;
+
+	return true;
+}
+
+bool MSG_AppendIoTSensorAttributeString(MSG_ATTRIBUTE_T* attr, const char* attrname, char *svalue)
+{
+	EXT_ATTRIBUTE_T *extattr = NULL,*extpre = NULL, *target = NULL;
+	if(!attr)
+		return false;
+	extattr = attr->extra;
+
+	while(extattr)
+	{
+		extpre = extattr;
+		if(strcmp(extattr->name, attrname)==0)
+		{
+			target = extattr;
+			break;
+		}
+		extattr = extattr->next;
+	}
+
+	if(target == NULL)
+	{
+		target = calloc(1, sizeof(EXT_ATTRIBUTE_T));
+		strcpy(target->name, attrname);
+
+		if(extpre == NULL)
+			attr->extra = target;
+		else
+			extpre->next = target;
+	}
+
+	if(target->type == attr_type_date || target->type == attr_type_string)
+	{
+		if(target->sv)
+			free(target->sv);
+		target->sv = NULL;
+	}
+
+	if(svalue)
+	{
+		int length = strlen(svalue);
+		target->sv = calloc(1, length+1);
+		strncpy(target->sv, svalue, strlen(svalue));
+		target->type = attr_type_string;
+	}
+	return true;
+}
+
+bool MSG_AppendIoTSensorAttributeTimestamp(MSG_ATTRIBUTE_T* attr, const char* attrname, unsigned int value)
+{
+	EXT_ATTRIBUTE_T *extattr = NULL,*extpre = NULL, *target = NULL;
+	if(!attr)
+		return false;
+	extattr = attr->extra;
+
+	while(extattr)
+	{
+		extpre = extattr;
+		if(strcmp(extattr->name, attrname)==0)
+		{
+			target = extattr;
+			break;
+		}
+		extattr = extattr->next;
+	}
+
+	if(target == NULL)
+	{
+		target = calloc(1, sizeof(EXT_ATTRIBUTE_T));
+		strcpy(target->name, attrname);
+
+		if(extpre == NULL)
+			attr->extra = target;
+		else
+			extpre->next = target;
+	}
+
+	if(target->type == attr_type_date || target->type == attr_type_string)
+	{
+		if(target->sv)
+			free(target->sv);
+		target->sv = NULL;
+	}
+	target->v = value;
+	target->type = attr_type_timestamp;
+	return true;
+}
+
+bool MSG_AppendIoTSensorAttributeDate(MSG_ATTRIBUTE_T* attr, const char* attrname, char *svalue)
+{
+	EXT_ATTRIBUTE_T *extattr = NULL,*extpre = NULL, *target = NULL;
+	if(!attr)
+		return false;
+	extattr = attr->extra;
+
+	while(extattr)
+	{
+		extpre = extattr;
+		if(strcmp(extattr->name, attrname)==0)
+		{
+			target = extattr;
+			break;
+		}
+		extattr = extattr->next;
+	}
+
+	if(target == NULL)
+	{
+		target = calloc(1, sizeof(EXT_ATTRIBUTE_T));
+		strcpy(target->name, attrname);
+
+		if(extpre == NULL)
+			attr->extra = target;
+		else
+			extpre->next = target;
+	}
+
+	if(target->type == attr_type_date || target->type == attr_type_string)
+	{
+		if(target->sv)
+			free(target->sv);
+		target->sv = NULL;
+	}
+
+	if(svalue)
+	{
+		int length = strlen(svalue);
+		target->sv = calloc(1, length+1);
+		strncpy(target->sv, svalue, strlen(svalue));
+		target->type = attr_type_date;
+	}
+	return true;
 }
 
 #pragma endregion Generate_JSON 

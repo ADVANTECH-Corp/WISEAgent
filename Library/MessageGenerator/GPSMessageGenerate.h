@@ -10,6 +10,7 @@ extern "C" {
 	void GPS_ReleaseGPS(MSG_CLASSIFY_T* gps);
 
 	MSG_CLASSIFY_T* GPS_AddDevice(MSG_CLASSIFY_T* gps, char const* device, char const* ver);
+	MSG_CLASSIFY_T* GPS_FindDevice(MSG_CLASSIFY_T* gps, char const* device);
 
 	MSG_ATTRIBUTE_T* GPS_SetTimeAttribute(MSG_CLASSIFY_T* device, char* time);
 	MSG_ATTRIBUTE_T* GPS_SetLatitudeAttribute(MSG_CLASSIFY_T* device, float value, float max, float min, char* unit);

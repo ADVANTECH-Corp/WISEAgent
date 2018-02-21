@@ -1,5 +1,5 @@
 #include <string.h>
- 
+#include "ReadINI.h"
 #ifdef WIN32
 #include <Windows.h>
 #include <stdio.h>
@@ -127,4 +127,10 @@ char *GetIniKeyString(char *title,char *key,char *filename)
 int GetIniKeyInt(char *title,char *key,char *filename)
 {
     return atoi(GetIniKeyString(title,key,filename));
+}
+
+//Get a Double Float Value From INI file
+double GetIniKeyDouble(char *title,char *key,char *filename)
+{
+    return atof(GetIniKeyString(title,key,filename));
 }

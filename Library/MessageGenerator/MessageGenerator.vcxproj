@@ -156,6 +156,7 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Platform\Windows\sys\time.cpp" />
     <ClCompile Include="DeviceMessageGenerate.c" />
     <ClCompile Include="FlatToIPSO.c" />
     <ClCompile Include="GPSMessageGenerate.c" />
@@ -170,6 +171,7 @@
     <ClInclude Include="..\..\Platform\AdvPlatform.h" />
     <ClInclude Include="..\..\Platform\Windows\binding.h" />
     <ClInclude Include="..\..\Platform\Windows\stdbool.h" />
+    <ClInclude Include="..\..\Platform\Windows\sys\time.h" />
     <ClInclude Include="..\..\Platform\Windows\unistd.h" />
     <ClInclude Include="..\..\Platform\Windows\wrapper.h" />
     <ClInclude Include="DeviceMessageGenerate.h" />

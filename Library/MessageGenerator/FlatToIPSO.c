@@ -26,6 +26,7 @@ void transfer_node_generate(cJSON* target, MSG_CLASSIFY_T *pGroup, cJSON* parent
 	{
 		MSG_ATTRIBUTE_T* attr = NULL;
 		cJSON* child = target->child;
+		IoT_READWRITE_MODE mode = IoT_READONLY;
 		switch (target->type)
 		{
 		case cJSON_Array:
@@ -55,25 +56,33 @@ void transfer_node_generate(cJSON* target, MSG_CLASSIFY_T *pGroup, cJSON* parent
 			attr = IoT_FindSensorNode(pGroup, target->string);
 			if(attr == NULL)
 				attr = IoT_AddSensorNode(pGroup, target->string);
-			IoT_SetBoolValue(attr, false, IoT_READONLY);
+			else
+				mode = IoT_GetReadWriteMode(attr->readwritemode);
+			IoT_SetBoolValue(attr, false, mode);
 			break;
 		case cJSON_True:
 			attr = IoT_FindSensorNode(pGroup, target->string);
 			if(attr == NULL)
 				attr = IoT_AddSensorNode(pGroup, target->string);
-			IoT_SetBoolValue(attr, true, IoT_READONLY);
+			else
+				mode = IoT_GetReadWriteMode(attr->readwritemode);
+			IoT_SetBoolValue(attr, true, mode);
 			break;
 		case cJSON_Number:
 			attr = IoT_FindSensorNode(pGroup, target->string);
 			if(attr == NULL)
 				attr = IoT_AddSensorNode(pGroup, target->string);
-			IoT_SetDoubleValue(attr, target->valuedouble, IoT_READONLY, NULL);
+			else
+				mode = IoT_GetReadWriteMode(attr->readwritemode);
+			IoT_SetDoubleValue(attr, target->valuedouble, mode, NULL);
 			break;
 		case cJSON_String:
 			attr = IoT_FindSensorNode(pGroup, target->string);
 			if(attr == NULL)
 				attr = IoT_AddSensorNode(pGroup, target->string);
-			IoT_SetStringValue(attr, target->valuestring, IoT_READONLY);
+			else
+				mode = IoT_GetReadWriteMode(attr->readwritemode);
+			IoT_SetStringValue(attr, target->valuestring, mode);
 			break;
 		case cJSON_Object:
 			{
@@ -83,10 +92,12 @@ void transfer_node_generate(cJSON* target, MSG_CLASSIFY_T *pGroup, cJSON* parent
 					attr = IoT_FindSensorNode(pGroup, target->string);
 					if(attr == NULL)
 						attr = IoT_AddSensorNode(pGroup, target->string);
-					if(date->valuestring)
-						IoT_SetDateValue(attr, date->valuestring, IoT_READONLY);
 					else
-						IoT_SetTimestampValue(attr, date->valueint, IoT_READONLY);
+						mode = IoT_GetReadWriteMode(attr->readwritemode);
+					if(date->valuestring)
+						IoT_SetDateValue(attr, date->valuestring, mode);
+					else
+						IoT_SetTimestampValue(attr, date->valueint, mode);
 				}
 				else
 				{
@@ -96,7 +107,9 @@ void transfer_node_generate(cJSON* target, MSG_CLASSIFY_T *pGroup, cJSON* parent
 						attr = IoT_FindSensorNode(pGroup, target->string);
 						if(attr == NULL)
 							attr = IoT_AddSensorNode(pGroup, target->string);
-						IoT_SetTimestampValue(attr, date->valueint, IoT_READONLY);
+						else
+							mode = IoT_GetReadWriteMode(attr->readwritemode);
+						IoT_SetTimestampValue(attr, date->valueint, mode);
 					}
 					else
 					{
@@ -130,7 +143,9 @@ void transfer_node_generate(cJSON* target, MSG_CLASSIFY_T *pGroup, cJSON* parent
 				attr = IoT_AddSensorNode(pGroup, target->string);
 				IoT_SetStringValue(attr, "", IoT_READONLY);
 			}
-			IoT_SetNULLValue(attr, IoT_READONLY);
+			else
+				mode = IoT_GetReadWriteMode(attr->readwritemode);
+			IoT_SetNULLValue(attr, mode);
 			break;
 		}
 		target = target->next;
@@ -143,7 +158,6 @@ bool transfer_parse_json(const char* data, MSG_CLASSIFY_T *pGroup)
 
 	cJSON* root = NULL;
 	cJSON* target = NULL;
-	MSG_ATTRIBUTE_T* attr = NULL;
 
 	if(!data) return false;
 	

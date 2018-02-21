@@ -5,9 +5,6 @@
 #include <stdbool.h>
 #include "basequeue.h"
 
-
-
-
 struct triggerdata {
 	bool isNormal;
 	char sensorname[256];
@@ -19,11 +16,9 @@ struct triggerdata {
 struct trigger_ctx{
    void*			threadHandler;
    bool				isThreadRunning;
-   struct triggerdata		*triggerqueue;
+   struct triggerdata*	triggerqueue;
+   THRESHOLD_ON_TRIGGER	on_triggered_cb;
 };
-
-static struct trigger_ctx g_triggerthreadctx;
-THRESHOLD_ON_TRIGGER g_on_triggered_cb = NULL;
 
 bool trigger_create(struct triggerdata *const trigger, bool isNormal, char* sensorname, double value, MSG_ATTRIBUTE_T* attr, void *pRev)
 {
@@ -49,90 +44,114 @@ void trigger_free(struct triggerdata *const trigger)
 
 void* threat_trigger_queue(void* args)
 {
-	struct trigger_ctx *precvContex = (struct trigger_ctx *)args;
+	struct trigger_ctx *precvContex = NULL;
 	unsigned long interval = 100*1000; //microsecond.
+
+	if(args == NULL)
+		goto TRIGGER_EXIT;
+	precvContex = (struct trigger_ctx *)args;
 	while(precvContex->isThreadRunning)
 	{
 		struct triggerdata *trigger = NULL;
 		usleep(interval);
-		trigger = (struct triggerdata *)queue_get(precvContex->triggerqueue);
+		trigger = (struct triggerdata *)queue_get((struct queue *const)precvContex->triggerqueue);
 		if(!trigger)
 			continue;
-		if(g_on_triggered_cb!= NULL)
+		if(precvContex->on_triggered_cb!= NULL)
 		{
-			g_on_triggered_cb(trigger->isNormal, trigger->sensorname, trigger->value, trigger->attr, trigger->pRev);
+			precvContex->on_triggered_cb(trigger->isNormal, trigger->sensorname, trigger->value, trigger->attr, trigger->pRev);
 		}
 		trigger_free(trigger);
 		trigger = NULL;
 	}
-
+TRIGGER_EXIT:
 	pthread_exit(0);
 	return 0;
 }
 
-bool triggerqueue_init(const unsigned int slots, THRESHOLD_ON_TRIGGER func)
+void* triggerqueue_init(const unsigned int slots)
 {
-	memset(&g_triggerthreadctx, 0, sizeof(struct trigger_ctx));
-	g_triggerthreadctx.triggerqueue = malloc(sizeof( struct queue));
-	g_on_triggered_cb = NULL;
-	if(g_triggerthreadctx.triggerqueue)
+	struct trigger_ctx* triggerthreadctx =  malloc(sizeof( struct trigger_ctx));
+	memset(triggerthreadctx, 0, sizeof(struct trigger_ctx));
+
+	triggerthreadctx->triggerqueue = malloc(sizeof( struct queue));
+
+	if(triggerthreadctx->triggerqueue)
 	{
-		if(!queue_init(g_triggerthreadctx.triggerqueue, slots, sizeof(struct triggerdata)))
+		if(queue_init((struct queue *const)triggerthreadctx->triggerqueue, slots, sizeof(struct triggerdata)))
 		{
-			free(g_triggerthreadctx.triggerqueue);
-			g_triggerthreadctx.triggerqueue = NULL;			
-		}
-		else
+			triggerthreadctx->isThreadRunning = true;
+			if (pthread_create(&triggerthreadctx->threadHandler, NULL, threat_trigger_queue, triggerthreadctx) != 0)
 		{
-			g_on_triggered_cb = func;
-			g_triggerthreadctx.isThreadRunning = true;
-			if (pthread_create(&g_triggerthreadctx.threadHandler, NULL, threat_trigger_queue, &g_triggerthreadctx) != 0)
-			{
-				g_triggerthreadctx.isThreadRunning = false;
-				queue_uninit(g_triggerthreadctx.triggerqueue, trigger_free);
-				free(g_triggerthreadctx.triggerqueue);
-				g_triggerthreadctx.triggerqueue = NULL;
+				triggerthreadctx->isThreadRunning = false;
+				queue_uninit((struct queue *const)triggerthreadctx->triggerqueue, trigger_free);
+				free(triggerthreadctx->triggerqueue);
+				triggerthreadctx->triggerqueue = NULL;
 			}
 			else
 			{
-				pthread_detach(g_triggerthreadctx.threadHandler);
-				g_triggerthreadctx.threadHandler = 0;
-				return true;
+				//pthread_detach(triggerthreadctx->threadHandler);
+				//triggerthreadctx->threadHandler = 0;
+				return triggerthreadctx;
 			}
 		}
+		/*Failed to create trigger queue*/
+		free(triggerthreadctx->triggerqueue);
+		triggerthreadctx->triggerqueue = NULL;			
 	}
-	return false;
+	free(triggerthreadctx);
+	triggerthreadctx = NULL;		
+	return triggerthreadctx;
 }
 
-void triggerqueue_uninit()
+void triggerqueue_uninit(void* qtrigger)
 {
-	g_on_triggered_cb = NULL;
+	struct trigger_ctx* triggerthreadctx = NULL;
+	if(qtrigger == NULL)
+		return;
+	triggerthreadctx = qtrigger;
+	triggerthreadctx->on_triggered_cb = NULL;
 
-	if(g_triggerthreadctx.isThreadRunning == true)
+	if(triggerthreadctx->isThreadRunning == true)
 	{
-		g_triggerthreadctx.isThreadRunning = false;
-		//pthread_join(g_triggerthreadctx.threadHandler, NULL);
-		//g_triggerthreadctx.threadHandler = 0;
+		triggerthreadctx->isThreadRunning = false;
+		pthread_join(triggerthreadctx->threadHandler, NULL);
+		triggerthreadctx->threadHandler = 0;
 
 		usleep(500*1000);
 	}
 
-	if(g_triggerthreadctx.triggerqueue)
+	if(triggerthreadctx->triggerqueue)
 	{
-		queue_uninit(g_triggerthreadctx.triggerqueue, trigger_free);
-		free(g_triggerthreadctx.triggerqueue);
-		g_triggerthreadctx.triggerqueue = NULL;
+		queue_uninit((struct queue *const)triggerthreadctx->triggerqueue, trigger_free);
+		free(triggerthreadctx->triggerqueue);
+		triggerthreadctx->triggerqueue = NULL;
 	}
 }
 
-bool triggerqueue_push(struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr)
+bool triggerqueue_setcb(void* qtrigger, THRESHOLD_ON_TRIGGER func)
 {
+	struct trigger_ctx* triggerthreadctx = NULL;
+	if(qtrigger == NULL)
+		return false;
+	triggerthreadctx = qtrigger;
+	triggerthreadctx->on_triggered_cb = func;
+	return true;
+}
+
+bool triggerqueue_push(void* qtrigger, struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr)
+{
+	struct trigger_ctx* triggerthreadctx = NULL;
+	if(qtrigger == NULL)
+		return false;
+	triggerthreadctx = qtrigger;
+
 	if(item == NULL) return false;
-	if(g_triggerthreadctx.triggerqueue)
+	if(triggerthreadctx->triggerqueue)
 	{
 		struct triggerdata *newtrigger = malloc(sizeof(struct triggerdata));
 		trigger_create(newtrigger, item->isNormal, item->pathname, item->checkRetValue, attr, NULL);
-		if(!queue_put(g_triggerthreadctx.triggerqueue, newtrigger))
+		if(!queue_put((struct queue *const)triggerthreadctx->triggerqueue, newtrigger))
 		{
 			trigger_free(newtrigger);
 			newtrigger = NULL;
@@ -143,10 +162,15 @@ bool triggerqueue_push(struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr)
 	return false;
 }
 
-void triggerqueue_clear()
+void triggerqueue_clear(void* qtrigger)
 {
-	if(g_triggerthreadctx.triggerqueue)
+	struct trigger_ctx* triggerthreadctx = NULL;
+	if(qtrigger == NULL)
+		return;
+	triggerthreadctx = qtrigger;
+
+	if(triggerthreadctx->triggerqueue)
 	{
-		queue_clear(g_triggerthreadctx.triggerqueue, trigger_free);
+		queue_clear((struct queue *const)triggerthreadctx->triggerqueue, trigger_free);
 	}
 }

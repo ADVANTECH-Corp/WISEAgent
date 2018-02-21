@@ -157,7 +157,7 @@ int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const s
 	int rv;
 	unsigned int wake = 0;
 	unsigned long generation;
-	unsigned long timeout_ms;
+	long long timeout_ms;
 	struct timeval tv;
 
 	pthread_gettimeofday(&tv, NULL);

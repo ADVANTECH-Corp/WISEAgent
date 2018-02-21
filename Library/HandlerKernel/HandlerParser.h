@@ -74,7 +74,7 @@ bool HANDLERPARSER_API HandlerParser_ParseAutoUploadCmd(char * cmdJsonStr, char 
  *  Return: true : Success
  *          false : Fail
  * ***************************************************************************************/
-bool HANDLERPARSER_API HandlerParser_ParseThrInfo(char * thrJsonStr, thr_item_list thrList, void (*on_triggered)(struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr));
+bool HANDLERPARSER_API HandlerParser_ParseThrInfo(char * thrJsonStr, thr_item_list thrList, void (*on_triggered)(void* qtrigger, struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr));
 
 /* **************************************************************************************
  *  Function Name: HandlerParser_PackSetThrRep

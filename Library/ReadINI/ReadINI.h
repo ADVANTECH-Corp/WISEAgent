@@ -11,6 +11,8 @@ int GetCurrentPath(char buf[],char *pFileName);
 char *GetIniKeyString(char *title,char *key,char *filename);
 //Get a Int Value From INI file
 int GetIniKeyInt(char *title,char *key,char *filename);
+//Get a Double Value From INI file
+double GetIniKeyDouble(char *title,char *key,char *filename);
 
 #ifdef __cplusplus
 }

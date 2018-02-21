@@ -10,3 +10,4 @@ EXPORTS
 	Handler_AutoReportStart
 	Handler_AutoReportStop
 	Handler_Get_Capability
+	Handler_MemoryFree

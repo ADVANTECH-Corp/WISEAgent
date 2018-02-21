@@ -63,7 +63,8 @@ typedef struct thr_item_info_t{
 	long long repThrTime;
 	bool isNormal;
 	bool isInvalid;
-	void (*on_triggered)(struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr);
+	void (*on_triggered)(void* qtrigger, struct thr_item_info_t* item, MSG_ATTRIBUTE_T* attr);
+	void* pTriggerQueue;
 }thr_item_info_t;
 
 typedef struct thr_item_node_t{

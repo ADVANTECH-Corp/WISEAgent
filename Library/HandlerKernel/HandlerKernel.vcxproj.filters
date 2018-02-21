@@ -17,13 +17,13 @@
       <UniqueIdentifier>{234e5e29-442c-466b-873b-412e7759b441}</UniqueIdentifier>
     </Filter>
     <Filter Include="Platform">
-      <UniqueIdentifier>{ceb8c7bd-586e-448a-8af6-915aff1817dc}</UniqueIdentifier>
+      <UniqueIdentifier>{530dc9ab-4dd8-4fda-92f1-a2ec744eb3c3}</UniqueIdentifier>
     </Filter>
     <Filter Include="Platform\Windows">
-      <UniqueIdentifier>{ba6f1035-23ba-421b-aa28-57defb4a8795}</UniqueIdentifier>
+      <UniqueIdentifier>{ca500027-e3ed-49ad-87a8-19db081608eb}</UniqueIdentifier>
     </Filter>
     <Filter Include="Platform\Windows\sys">
-      <UniqueIdentifier>{7a5d201c-b117-42ba-85c1-7739922e2f95}</UniqueIdentifier>
+      <UniqueIdentifier>{d7b8f9dc-f1c2-489f-a3d6-dbbf3529a533}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -39,14 +39,17 @@
     <ClCompile Include="triggerqueue.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Platform\basequeue.c">
-      <Filter>Platform\Windows</Filter>
+    <ClCompile Include="HandlerKernelEx.c">
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Platform\Windows\pthread.c">
       <Filter>Platform\Windows</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Platform\Windows\sys\time.cpp">
       <Filter>Platform\Windows\sys</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Platform\basequeue.c">
+      <Filter>Platform\Windows</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -77,14 +80,17 @@
     <ClInclude Include="..\..\Include\svnversion.h">
       <Filter>Include</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Platform\basequeue.h">
-      <Filter>Platform\Windows</Filter>
+    <ClInclude Include="HandlerKernelEx.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Platform\Windows\pthread.h">
       <Filter>Platform\Windows</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Platform\Windows\sys\time.h">
       <Filter>Platform\Windows\sys</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Platform\basequeue.h">
+      <Filter>Platform\Windows</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -572,7 +572,7 @@ bool HandlerThreshold_CheckThrItem(thr_item_info_t * pThrItemInfo, MSG_ATTRIBUTE
 			pThrItemInfo->isNormal = false;
 			bRet = true;
 			if(pThrItemInfo->on_triggered)
-				pThrItemInfo->on_triggered(pThrItemInfo, attr);
+				pThrItemInfo->on_triggered(pThrItemInfo->pTriggerQueue, pThrItemInfo, attr);
 		}
 	}
 	else
@@ -587,7 +587,7 @@ bool HandlerThreshold_CheckThrItem(thr_item_info_t * pThrItemInfo, MSG_ATTRIBUTE
 			bRet = true;
 
 			if(pThrItemInfo->on_triggered)
-				pThrItemInfo->on_triggered(pThrItemInfo, attr);
+				pThrItemInfo->on_triggered(pThrItemInfo->pTriggerQueue, pThrItemInfo, attr);
 		}
 	}
 
