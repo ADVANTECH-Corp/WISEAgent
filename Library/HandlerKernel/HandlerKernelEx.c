@@ -98,7 +98,7 @@ long long HandlerKernelEx_GetTimeTick()
 void* HandlerKernelEx_MonitorThread(void *args)
 {
 	handler_kernel_t* pHandlerKernel = NULL;
-	int interval=1000;
+	int interval=100;
 	long long curTime = 0;
 
 	if(args == NULL)
