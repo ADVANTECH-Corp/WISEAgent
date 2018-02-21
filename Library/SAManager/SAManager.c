@@ -317,6 +317,7 @@ susiaccess_packet_body_t * SAManager_WrapAutoReportPacket(Handler_info const * p
 	if(oproot)
 	{
 		cJSON_AddNumberToObject(oproot,"$date",(unsigned long long)t*1000);
+		//cJSON_AddStringToObject(oproot,"bn", "opTS");
 	}
 	if(root)
 	{		
@@ -326,11 +327,13 @@ susiaccess_packet_body_t * SAManager_WrapAutoReportPacket(Handler_info const * p
 			{
 				cJSON* opts = cJSON_GetObjectItem(root->child->child, "opTS");
 				if(opts == NULL)
-				cJSON_AddItemToObject(root->child->child,"opTS", cJSON_Duplicate(oproot, 1));
+					cJSON_AddItemToObject(root->child->child,"opTS", oproot);
+				else
+					cJSON_Delete(oproot);
 			}
 		}	
 	}
-	cJSON_Delete(oproot);
+	
 
 	buff = cJSON_PrintUnformatted(root);
 	cJSON_Delete(root);
@@ -474,6 +477,7 @@ susiaccess_packet_body_t * SAManager_WrapCapabilityPacket(Handler_info const * p
 	if(oproot)
 	{
 		cJSON_AddNumberToObject(oproot,"$date",(unsigned long long)t*1000);
+		//cJSON_AddStringToObject(oproot,"bn", "opTS");
 	}
 	if(root)
 	{
@@ -482,7 +486,9 @@ susiaccess_packet_body_t * SAManager_WrapCapabilityPacket(Handler_info const * p
 			{
 				cJSON* opts = cJSON_GetObjectItem(root->child->child, "opTS");
 				if(opts == NULL)
-				cJSON_AddItemToObject(root->child->child,"opTS",oproot);
+					cJSON_AddItemToObject(root->child->child,"opTS", oproot);
+				else
+					cJSON_Delete(oproot);
 	}
 	}
 
