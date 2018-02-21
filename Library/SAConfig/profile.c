@@ -17,6 +17,8 @@
 #define DEV_MANUFACTURE_KEY		"Manufacture"
 #define DEV_SN_KEY				"SN"
 #define DEV_LAL_KEY				"Lal"
+#define DEV_OSVERSION_KEY		"osVersion"
+#define DEV_OSARCH_KEY			"osArch"
 #define DEV_WORKDIR_KEY			"WorkDir"
 #define USER_NAME_KEY			"UserName"
 #define USER_PASSWORD_KEY		"UserPassword"
@@ -134,6 +136,16 @@ bool SACONFIG_API profile_load(char const * configFile, susiaccess_agent_profile
 		util_module_path_get(profile->workdir);
 		xml_SetItemValue(doc, DEV_WORKDIR_KEY, profile->workdir);
 		bModify = true;
+	}
+
+	if(!xml_GetItemValue(doc, DEV_OSVERSION_KEY, profile->osversion, sizeof(profile->osversion)))
+	{
+		memset(profile->osversion, 0, sizeof(profile->osversion));
+	}
+
+	if(!xml_GetItemValue(doc, DEV_OSARCH_KEY, profile->osarchitect, sizeof(profile->osarchitect)))
+	{
+		memset(profile->osarchitect, 0, sizeof(profile->osarchitect));
 	}
 
 	if(!xml_GetItemValue(doc, USER_NAME_KEY, profile->account, sizeof(profile->account)))
