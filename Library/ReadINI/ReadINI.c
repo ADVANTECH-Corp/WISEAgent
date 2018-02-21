@@ -1,5 +1,5 @@
 #include <string.h>
- 
+#include "ReadINI.h"
 #ifdef WIN32
 #include <Windows.h>
 #include <stdio.h>
