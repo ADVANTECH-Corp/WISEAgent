@@ -73,6 +73,25 @@ MSG_ATTRIBUTE_T* IoT_AddSensorNode(MSG_CLASSIFY_T* pNode, char* senName)
 	return attr;
 }
 	
+MSG_ATTRIBUTE_T* IoT_AddOPTSNode(MSG_CLASSIFY_T* pNode)
+{
+	MSG_CLASSIFY_T *pCurNode = NULL;
+	MSG_ATTRIBUTE_T *attr = NULL;
+	if(pNode)
+	{
+		if(pNode->type == class_type_root)
+			pNode = pNode->sub_list;
+		pCurNode = MSG_FindClassify(pNode, "opTS");
+		if(!pCurNode)
+			pCurNode = MSG_AddJSONClassify(pNode, "opTS", NULL, false);
+
+		attr = MSG_FindJSONAttribute(pCurNode, "$date");
+		if(!attr)
+			attr = MSG_AddJSONAttribute(pCurNode, "$date");
+	}
+	return attr;
+}
+	
 char* IoT_GetReadWriteString(IoT_READWRITE_MODE readwritemode)
 {
 	char* readwrite = malloc(3);
@@ -322,8 +341,8 @@ char *IoT_PrintFullCapability(MSG_CLASSIFY_T* pRoot, char *agentID)
 
 char *IoT_PrintData(MSG_CLASSIFY_T* pRoot)
 {
-	int size = 8;
-	char* filter[] ={"n", "bn", "v","sv","bv","id","StatusCode","sessionID"};
+	int size = 9;
+	char* filter[] ={"n", "bn", "v","sv","bv","id","StatusCode","sessionID", "$date"};
 	
 	return MSG_PrintWithFiltered(pRoot,filter,size);
 }
@@ -334,8 +353,8 @@ char *IoT_PrintFullData(MSG_CLASSIFY_T* pRoot, char *agentID)
 	cJSON* target = NULL;
 	cJSON* susCmd = NULL;
 	char* data = NULL;
-	int size = 8;
-	char* filter[] ={"n", "bn", "v","sv","bv","id","StatusCode","sessionID"};
+	int size = 9;
+	char* filter[] ={"n", "bn", "v","sv","bv","id","StatusCode","sessionID", "$date"};
 	long long tick = 0;
 
 	if(pRoot == NULL || agentID == NULL)
