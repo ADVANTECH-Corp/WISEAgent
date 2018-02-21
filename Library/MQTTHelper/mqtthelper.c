@@ -27,6 +27,7 @@ MQTT_MESSAGE_CALLBACK on_mqtt_message_func = NULL;
 
 pthread_mutex_t g_publishmutex;
 struct msg_queue g_msg_queue;
+bool g_bConnected = false;
 
 struct mqttmsg* MQTT_LastMsgQueue()
 {
@@ -143,11 +144,13 @@ void MQTT_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 	//printf("%s\n",mosquitto_connack_string(rc));
 	if(rc == mqtt_err_success)
 	{
+		g_bConnected = true;
 		if(on_mqtt_connect_cb != NULL)
 			on_mqtt_connect_cb(rc);
 	}
 	else
 	{	
+		g_bConnected = false;
 		if(on_mqtt_lostconnect_cb != NULL)
 				on_mqtt_lostconnect_cb(rc);
 	}
@@ -156,6 +159,7 @@ void MQTT_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 void MQTT_disconnect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
 	//printf("%s\n",mosquitto_connack_string(rc));
+	g_bConnected = false;
 	if(rc == mqtt_err_success)
 	{
 		if(on_mqtt_disconnect_cb != NULL)
@@ -189,7 +193,7 @@ int MQTT_lib_version(int *major, int *minor, int *revision)
 void * MQTT_Initialize(char const * devid)
 {
 	struct mosquitto *mosq = NULL;
-	
+	g_bConnected = false;
 	if(pthread_mutex_init(&g_publishmutex, NULL)!=0)
 	{
 		return mosq;
@@ -212,7 +216,7 @@ void * MQTT_Initialize(char const * devid)
 void MQTT_Uninitialize(void *mosq)
 {
 	pthread_mutex_destroy(&g_publishmutex);
-
+	g_bConnected = false;
 	on_mqtt_connect_cb = NULL;
 	on_mqtt_lostconnect_cb = NULL;
 	on_mqtt_disconnect_cb = NULL;
@@ -290,7 +294,7 @@ void MQTT_Disconnect(void *mosq, bool bForce)
 {
 	if(mosq == NULL)
 		return;
-
+	g_bConnected = false;
 	MQTT_UninitMsgQueue();
 
 	if(!bForce)
@@ -327,6 +331,8 @@ int MQTT_Publish(void *mosq,  char* topic, const void *msg, int msglen, int qos,
 	int result = MOSQ_ERR_SUCCESS;
 	if(mosq == NULL)
 		return MOSQ_ERR_INVAL;
+	if(!g_bConnected)
+		return MOSQ_ERR_NO_CONN;
 	pthread_mutex_lock(&g_publishmutex);
 	result = mosquitto_publish(mosq, &mid, topic, msglen, msg, qos, retain);
 	if(result == MOSQ_ERR_SUCCESS)
