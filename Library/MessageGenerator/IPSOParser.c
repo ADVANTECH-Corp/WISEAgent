@@ -163,130 +163,130 @@ void transfer_group_generate(cJSON* target, MSG_CLASSIFY_T *pGroup)
 
 	while(target) 
 	{
-	if(target->type == cJSON_Object)
-	{
-		cJSON* baseName = transfer_node_find(target, TAG_BASE_NAME, cJSON_String);
-		if(!baseName)
+		if(target->type == cJSON_Object)
 		{
-			transfer_group_generate(target->child, pGroup);
+			cJSON* baseName = transfer_node_find(target, TAG_BASE_NAME, cJSON_String);
+			if(!baseName)
+			{
+				transfer_group_generate(target->child, pGroup);
 				target = target->next;
 				continue;
 				/*pCurNode = IoT_FindGroup(pGroup, target->string);
 				if(!pCurNode)
 					pCurNode = IoT_AddGroup(pGroup, target->string);*/
-		}
+			}
 			else
 			{
-		if(!baseName->valuestring) return;
-		pCurNode = IoT_FindGroup(pGroup, baseName->valuestring);
-		if(!pCurNode)
-			pCurNode = IoT_AddGroup(pGroup, baseName->valuestring);
-	}
+				if(!baseName->valuestring) return;
+				pCurNode = IoT_FindGroup(pGroup, baseName->valuestring);
+				if(!pCurNode)
+					pCurNode = IoT_AddGroup(pGroup, baseName->valuestring);
+			}
 		}
-	else if(target->type == cJSON_Array)
-	{
-		pCurNode = IoT_FindGroup(pGroup, target->string);
-		if(!pCurNode)
-			pCurNode = IoT_AddGroupArray(pGroup, target->string);
-	}
-	else
+		else if(target->type == cJSON_Array)
+		{
+			pCurNode = IoT_FindGroup(pGroup, target->string);
+			if(!pCurNode)
+				pCurNode = IoT_AddGroupArray(pGroup, target->string);
+		}
+		else
 		{
 			target = target->next;
 			continue;
 		}
-
-	child = target->child;
-	while(child)
-	{
-		MSG_ATTRIBUTE_T* attr = NULL;
-
-		if(transfer_node_check(child, TAG_BASE_NAME, cJSON_String))
-			strncpy(pCurNode->classname, child->valuestring, strlen(child->valuestring));
-		else if(transfer_node_check(child, TAG_VERSION, cJSON_String))
-			strncpy(pCurNode->version, child->valuestring, strlen(child->valuestring));
-		else if(transfer_node_check(child, TAG_E_NODE, cJSON_Array))
+		
+		child = target->child;
+		while(child)
 		{
-			cJSON* sensor = child->child;
-			while(sensor)
+			MSG_ATTRIBUTE_T* attr = NULL;
+
+			if(transfer_node_check(child, TAG_BASE_NAME, cJSON_String))
+				strncpy(pCurNode->classname, child->valuestring, strlen(child->valuestring));
+			else if(transfer_node_check(child, TAG_VERSION, cJSON_String))
+				strncpy(pCurNode->version, child->valuestring, strlen(child->valuestring));
+			else if(transfer_node_check(child, TAG_E_NODE, cJSON_Array))
 			{
-				transfer_sensor_generate(sensor, pCurNode);
-				sensor = sensor->next;
-			}
-		}
-		else
-		{
-			switch(child->type)
-			{
-				case cJSON_False:
-				attr = IoT_FindGroupAttribute(pCurNode, child->string);
-				if(attr == NULL)
-					attr = IoT_AddGroupAttribute(pCurNode, child->string);
-				IoT_SetBoolValue(attr, false, IoT_READONLY);
-				break;
-			case cJSON_True:
-				attr = IoT_FindGroupAttribute(pCurNode, child->string);
-				if(attr == NULL)
-					attr = IoT_AddGroupAttribute(pCurNode, child->string);
-				IoT_SetBoolValue(attr, true, IoT_READONLY);
-				break;
-			case cJSON_Number:
-				attr = IoT_FindGroupAttribute(pCurNode, child->string);
-				if(attr == NULL)
-					attr = IoT_AddGroupAttribute(pCurNode, child->string);
-				IoT_SetDoubleValue(attr, child->valuedouble, IoT_READONLY, NULL);
-				break;
-			case cJSON_String:
-				attr = IoT_FindGroupAttribute(pCurNode, child->string);
-				if(attr == NULL)
-					attr = IoT_AddGroupAttribute(pCurNode, child->string);
-				IoT_SetStringValue(attr, child->valuestring, IoT_READONLY);
-				break;
-			case cJSON_NULL:
-				attr = IoT_FindGroupAttribute(pCurNode, child->string);
-				if(attr == NULL)
+				cJSON* sensor = child->child;
+				while(sensor)
 				{
-					attr = IoT_AddGroupAttribute(pCurNode, child->string);
-					IoT_SetStringValue(attr, "", IoT_READONLY);
+					transfer_sensor_generate(sensor, pCurNode);
+					sensor = sensor->next;
 				}
-				IoT_SetNULLValue(attr, IoT_READONLY);
-				break;
-			case cJSON_Array:
-				transfer_group_generate(child, pCurNode);
-				break;
-			case cJSON_Object:
+			}
+			else
+			{
+				switch(child->type)
 				{
-					cJSON* date = cJSON_GetObjectItem(child, "$date");
-					if(date)
+					case cJSON_False:
+					attr = IoT_FindGroupAttribute(pCurNode, child->string);
+					if(attr == NULL)
+						attr = IoT_AddGroupAttribute(pCurNode, child->string);
+					IoT_SetBoolValue(attr, false, IoT_READONLY);
+					break;
+				case cJSON_True:
+					attr = IoT_FindGroupAttribute(pCurNode, child->string);
+					if(attr == NULL)
+						attr = IoT_AddGroupAttribute(pCurNode, child->string);
+					IoT_SetBoolValue(attr, true, IoT_READONLY);
+					break;
+				case cJSON_Number:
+					attr = IoT_FindGroupAttribute(pCurNode, child->string);
+					if(attr == NULL)
+						attr = IoT_AddGroupAttribute(pCurNode, child->string);
+					IoT_SetDoubleValue(attr, child->valuedouble, IoT_READONLY, NULL);
+					break;
+				case cJSON_String:
+					attr = IoT_FindGroupAttribute(pCurNode, child->string);
+					if(attr == NULL)
+						attr = IoT_AddGroupAttribute(pCurNode, child->string);
+					IoT_SetStringValue(attr, child->valuestring, IoT_READONLY);
+					break;
+				case cJSON_NULL:
+					attr = IoT_FindGroupAttribute(pCurNode, child->string);
+					if(attr == NULL)
 					{
-						attr = IoT_FindGroupAttribute(pCurNode, child->string);
-						if(attr == NULL)
-							attr = IoT_AddGroupAttribute(pCurNode, child->string);
-						if(date->valuestring)
-							IoT_SetDateValue(attr, date->valuestring, IoT_READONLY);
-						else
-							IoT_SetTimestampValue(attr, date->valueint, IoT_READONLY);
+						attr = IoT_AddGroupAttribute(pCurNode, child->string);
+						IoT_SetStringValue(attr, "", IoT_READONLY);
 					}
-					else
+					IoT_SetNULLValue(attr, IoT_READONLY);
+					break;
+				case cJSON_Array:
+					transfer_group_generate(child, pCurNode);
+					break;
+				case cJSON_Object:
 					{
-						date = cJSON_GetObjectItem(child, "$timestamp");
+						cJSON* date = cJSON_GetObjectItem(child, "$date");
 						if(date)
 						{
 							attr = IoT_FindGroupAttribute(pCurNode, child->string);
 							if(attr == NULL)
 								attr = IoT_AddGroupAttribute(pCurNode, child->string);
-							IoT_SetTimestampValue(attr, date->valueint, IoT_READONLY);
+							if(date->valuestring)
+								IoT_SetDateValue(attr, date->valuestring, IoT_READONLY);
+							else
+								IoT_SetTimestampValue(attr, date->valueint, IoT_READONLY);
 						}
 						else
 						{
-							transfer_group_generate(child, pCurNode);
+							date = cJSON_GetObjectItem(child, "$timestamp");
+							if(date)
+							{
+								attr = IoT_FindGroupAttribute(pCurNode, child->string);
+								if(attr == NULL)
+									attr = IoT_AddGroupAttribute(pCurNode, child->string);
+								IoT_SetTimestampValue(attr, date->valueint, IoT_READONLY);
+							}
+							else
+							{
+								transfer_group_generate(child, pCurNode);
+							}
 						}
 					}
+					break;
 				}
-				break;
 			}
+			child = child->next;
 		}
-		child = child->next;
-	}
 		target = target->next;
 	}
 }

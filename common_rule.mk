@@ -58,5 +58,5 @@ endif
 distclean: clean
 
 install: 
-	cp -d $(application_NAME) $(library_DYNAMIC) $(library_SO) $(INSTALL_OUTPUT_DIR)
+	@- cp -d $(application_NAME) $(library_DYNAMIC) $(library_SO) $(INSTALL_OUTPUT_DIR)
 

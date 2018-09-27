@@ -319,22 +319,22 @@
 				RelativePath="..\..\Platform\AdvPlatform.h"
 				>
 			</File>
-				<File
-					RelativePath="..\..\Platform\basequeue.c"
-					>
-				</File>
-				<File
-					RelativePath="..\..\Platform\basequeue.h"
-					>
-				</File>
-				<File
-					RelativePath="..\..\Platform\Windows\pthread.c"
-					>
-				</File>
-				<File
-					RelativePath="..\..\Platform\Windows\pthread.h"
-					>
-				</File>
+			<File
+				RelativePath="..\..\Platform\basequeue.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Platform\basequeue.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Platform\Windows\pthread.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Platform\Windows\pthread.h"
+				>
+			</File>
 			<File
 				RelativePath="..\..\Platform\Windows\stdbool.h"
 				>
@@ -343,17 +343,17 @@
 				RelativePath="..\..\Platform\Windows\unistd.h"
 				>
 			</File>
-				<Filter
-					Name="sys"
+			<Filter
+				Name="sys"
+				>
+				<File
+					RelativePath="..\..\Platform\Windows\sys\time.cpp"
 					>
-					<File
-						RelativePath="..\..\Platform\Windows\sys\time.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\..\Platform\Windows\sys\time.h"
-						>
-					</File>
+				</File>
+				<File
+					RelativePath="..\..\Platform\Windows\sys\time.h"
+					>
+				</File>
 			</Filter>
 		</Filter>
 	</Files>

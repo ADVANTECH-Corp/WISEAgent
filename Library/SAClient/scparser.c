@@ -251,7 +251,8 @@ PJSON scparser_packet_create(susiaccess_packet_body_t const * pPacket)
    cJSON_AddNumberToObject(root, BASICINFO_REQID, pPacket->requestID);
    cJSON_AddStringToObject(root, BASICINFO_AGENTID, pPacket->devId);
    cJSON_AddStringToObject(root, BASICINFO_HANDLERNAME, pPacket->handlerName);
-
+	
+   if(cJSON_GetObjectItem(root, BASICINFO_TIMESTAMP) == NULL)
    {
 		struct timespec time;
 		struct timeval tv;

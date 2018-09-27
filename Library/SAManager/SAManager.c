@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
 #include "SAManagerLog.h"
 #include "topic.h"
 #include "keepalive.h"
@@ -43,6 +44,9 @@ LOGHANDLE g_samanagerlogger = NULL;
 
 susiaccess_agent_conf_body_t * g_pConfig = NULL;
 susiaccess_agent_profile_body_t * g_pProfile = NULL;
+
+static unsigned long long g_ullDataFlowSeq = 0; //8 bytes, 0 ~ 18,446,744,073,709,551,615
+bool g_bUninitialized = false;
 
 #ifdef _MSC_VER
 BOOL WINAPI DllMain(HINSTANCE module_handle, DWORD reason_for_call, LPVOID reserved)
@@ -117,6 +121,103 @@ char * ConvertMessageToUTF8(char* wText)
 	return utf8RetStr;
 }
 
+void SAManager_InsertOPTSNode(cJSON* handler)
+{
+	cJSON* oproot = NULL;
+	if(handler == NULL)
+		return;
+	oproot = cJSON_CreateObject();
+	if(oproot)
+	{
+		long long tick = 0;
+		{
+			struct timeval tv;
+			gettimeofday(&tv, NULL);
+			tick = (long long)tv.tv_sec*1000 + (long long)tv.tv_usec/1000;
+	    }
+		cJSON_AddNumberToObject(oproot,"$date", tick);
+
+		if(handler)
+		{
+			cJSON* opts = cJSON_GetObjectItem(handler, "opTS");
+			if(opts == NULL)
+				cJSON_AddItemToObject(handler,"opTS", cJSON_Duplicate(oproot, true));
+		}
+
+		cJSON_Delete(oproot);
+	}
+}
+
+void SAManager_InsertDataFlowNode(cJSON* handler, Handler_info const * plugin)
+{
+	char flow[256] = {0};
+	long long tick = 0;
+	if(plugin == NULL)
+		return;
+	sprintf(flow, "%s/%s", plugin->Name, plugin->agentInfo->devId);
+	
+	if(handler == NULL)
+		return;
+	if(handler)
+	{
+		cJSON* seqnode = NULL;
+		cJSON* srctsnode = NULL;
+		cJSON *dfnode = cJSON_GetObjectItem(handler, "dataFlow");
+		if(dfnode == NULL)
+		{
+			cJSON* seqnode = NULL;
+			cJSON_AddStringToObject(handler,"dataFlow", flow);
+			
+			seqnode = cJSON_GetObjectItem(handler, "seq");
+			if(seqnode == NULL)
+			{
+				long long tick = 0;
+				char seq[256] = {0};
+				{
+					struct timeval tv;
+					gettimeofday(&tv, NULL);
+					tick = (long long)tv.tv_sec*1000 + (long long)tv.tv_usec/1000;
+				}
+				sprintf(seq, "%llu_%llu",g_ullDataFlowSeq++, tick);
+				cJSON_AddStringToObject(handler,"seq", seq);
+			}
+		}
+		else
+		{
+			long length = strlen(dfnode->valuestring)+strlen(plugin->Name)+strlen(plugin->agentInfo->devId)+16;
+			char* newflow = (char*)calloc(1, length);
+			sprintf(newflow, "%s/%s",dfnode->valuestring, flow);
+			cJSON_DeleteItemFromObject(handler, "dataFlow");
+			cJSON_AddStringToObject(handler,"dataFlow", newflow);
+			free(newflow);
+		}
+
+		{
+			struct timeval tv;
+			gettimeofday(&tv, NULL);
+			tick = (long long)tv.tv_sec*1000 + (long long)tv.tv_usec/1000;
+		}
+
+		seqnode = cJSON_GetObjectItem(handler, "seq");
+		if(seqnode == NULL)
+		{
+			
+			char seq[256] = {0};
+			sprintf(seq, "%llu_%llu",g_ullDataFlowSeq++, tick);
+			cJSON_AddStringToObject(handler,"seq", seq);
+		}
+
+		srctsnode = cJSON_GetObjectItem(handler, "srcTs");
+		if(srctsnode == NULL)
+		{
+			cJSON_AddNumberToObject(handler,"srcTs", tick);
+		}
+	}
+	if(g_ullDataFlowSeq > 18000000000000000000)
+		g_ullDataFlowSeq = 0;
+
+}
+
 susiaccess_packet_body_t*  SAManager_WrapReqPacket(Handler_info const * plugin, int const enum_act, void const * const requestData, unsigned int const requestLen, bool bCust)
 {
 	susiaccess_packet_body_t* packet = NULL;
@@ -160,11 +261,19 @@ susiaccess_packet_body_t*  SAManager_WrapReqPacket(Handler_info const * plugin, 
 #else
 	if(requestData)
 	{
-		packet->content = (char*)malloc(requestLen+1);
-		if(packet->content)
+		cJSON* root = cJSON_Parse((const char *)requestData);
+		if(root)
 		{
-			memset(packet->content, 0, requestLen+1);
-			memcpy(packet->content, requestData, requestLen);
+			char* buff = 0;
+			SAManager_InsertDataFlowNode(root,plugin);
+			buff = cJSON_PrintUnformatted(root);
+			cJSON_Delete(root);
+			packet->content = (char*)calloc(1, strlen(buff)+1);
+			if(packet->content)
+			{
+				memcpy(packet->content, buff, strlen(buff));
+			}
+			free(buff);
 		}
 	}
 #endif
@@ -201,6 +310,9 @@ AGENT_SEND_STATUS SAManager_SendMessage( HANDLE const handle, int enum_act,
 	char topicStr[128] = {0};
 
 	if(handle == NULL)
+		return result;
+
+	if(g_bUninitialized)
 		return result;
 
 	plugin = (Handler_info*)handle;
@@ -244,6 +356,9 @@ AGENT_SEND_STATUS SAManager_SendCustMessage( HANDLE const handle, int enum_act, 
 	//if(handle == NULL)
 	//	return result;
 
+	if(g_bUninitialized)
+		return result;
+
 	if(handle)
 		plugin = (Handler_info*)handle;
 
@@ -277,7 +392,6 @@ susiaccess_packet_body_t * SAManager_WrapAutoReportPacket(Handler_info const * p
 {
 	susiaccess_packet_body_t* packet = NULL;
 
-	cJSON* oproot = NULL;
 	cJSON* node = NULL;
 	cJSON* root = NULL;
 	cJSON* pfinfoNode = NULL;
@@ -313,23 +427,14 @@ susiaccess_packet_body_t * SAManager_WrapAutoReportPacket(Handler_info const * p
 	cJSON_Delete(node);
 	cJSON_AddItemToObject(root, "data", pfinfoNode);
 
-	oproot = cJSON_CreateObject();
-	if(oproot)
-	{
-		cJSON_AddNumberToObject(oproot,"$date",(unsigned long long)t*1000);
-		//cJSON_AddStringToObject(oproot,"bn", "opTS");
-	}
 	if(root)
 	{		
 		if(root->child)
 		{
 			if(root->child->child)
 			{
-				cJSON* opts = cJSON_GetObjectItem(root->child->child, "opTS");
-				if(opts == NULL)
-					cJSON_AddItemToObject(root->child->child,"opTS", oproot);
-				else
-					cJSON_Delete(oproot);
+				SAManager_InsertOPTSNode(root->child->child);
+				SAManager_InsertDataFlowNode(root->child->child, plugin);
 			}
 		}	
 	}
@@ -367,6 +472,9 @@ void SAManager_Redirect(HANDLE const handle, susiaccess_packet_body_t * packet)
 	if(handle == NULL || packet == NULL)
 		return;
 
+	if(g_bUninitialized)
+		return;
+
 	plugin = (Handler_info*)handle;
 
 	if(plugin->agentInfo == NULL)
@@ -395,6 +503,9 @@ AGENT_SEND_STATUS SAManager_SendAutoReport( HANDLE const handle,
 	char topicStr[128] = {0};
 
 	if(handle == NULL)
+		return result;
+
+	if(g_bUninitialized)
 		return result;
 
 	plugin = (Handler_info*)handle;
@@ -438,7 +549,6 @@ susiaccess_packet_body_t * SAManager_WrapCapabilityPacket(Handler_info const * p
 {
 	susiaccess_packet_body_t* packet = NULL;
 
-	cJSON* oproot = NULL;
 	cJSON* node = NULL;
 	cJSON* root = NULL;
 	cJSON* pfinfoNode = NULL;
@@ -473,23 +583,14 @@ susiaccess_packet_body_t * SAManager_WrapCapabilityPacket(Handler_info const * p
 	cJSON_Delete(node);
 	cJSON_AddItemToObject(root, "infoSpec", pfinfoNode);
 
-	oproot = cJSON_CreateObject();
-	if(oproot)
-	{
-		cJSON_AddNumberToObject(oproot,"$date",(unsigned long long)t*1000);
-		//cJSON_AddStringToObject(oproot,"bn", "opTS");
-	}
 	if(root)
 	{
 		if(root->child)
 			if(root->child->child)
 			{
-				cJSON* opts = cJSON_GetObjectItem(root->child->child, "opTS");
-				if(opts == NULL)
-					cJSON_AddItemToObject(root->child->child,"opTS", oproot);
-				else
-					cJSON_Delete(oproot);
-	}
+				SAManager_InsertOPTSNode(root->child->child);
+				SAManager_InsertDataFlowNode(root->child->child, plugin);
+			}
 	}
 
 	buff = cJSON_PrintUnformatted(root);
@@ -525,6 +626,9 @@ AGENT_SEND_STATUS SAManager_SendCapability( HANDLE const handle,
 	char topicStr[128] = {0};
 
 	if(handle == NULL)
+		return result;
+
+	if(g_bUninitialized)
 		return result;
 
 	plugin = (Handler_info*)handle;
@@ -601,13 +705,16 @@ susiaccess_packet_body_t * SAManager_WrapEventNotifyPacket(Handler_info const * 
 		}
 		severityNode = cJSON_GetObjectItem(pfinfoNode, "severity");
 		if(severityNode == NULL)
-		cJSON_AddNumberToObject(pfinfoNode, "severity", severity);
+			cJSON_AddNumberToObject(pfinfoNode, "severity", severity);
 		handlerNode = cJSON_GetObjectItem(pfinfoNode, "handler");
 		if(handlerNode == NULL)
-		cJSON_AddStringToObject(pfinfoNode, "handler", plugin->Name);
+			cJSON_AddStringToObject(pfinfoNode, "handler", plugin->Name);
 	}
 	cJSON_Delete(node);
 	cJSON_AddItemToObject(root, "eventnotify", pfinfoNode);
+
+	SAManager_InsertDataFlowNode(root, plugin);
+
 	buff = cJSON_PrintUnformatted(root);
 	cJSON_Delete(root);
 	length = strlen(buff);
@@ -641,6 +748,9 @@ AGENT_SEND_STATUS SAManager_SendEventNotify( HANDLE const handle, HANDLER_NOTIFY
 	char topicStr[128] = {0};
 
 	if(handle == NULL)
+		return result;
+
+	if(g_bUninitialized)
 		return result;
 
 	plugin = (Handler_info*)handle;
@@ -772,10 +882,14 @@ AGENT_SEND_STATUS SAManager_SendOSInfo()
 AGENT_SEND_STATUS SAManager_AddVirtualHandler(char *VirName, char *HandlerName)
 {
 	hlloader_load_virtualhandler(g_pSALoader, &g_handlerList,VirName,HandlerName);
+	return cagent_success;
 }
 
 void SAManager_RecvInternalCommandReq(char* topic, susiaccess_packet_body_t *pkt, void *pRev1, void* pRev2)
 {
+	if(g_bUninitialized)
+		return;
+
 	if(g_pSALoader)
 	{
 		hlloader_handler_recv(g_pSALoader,&g_handlerList, topic, pkt, pRev1, pRev2);
@@ -786,6 +900,9 @@ void SAManager_CustMessageRecv(char* topic, susiaccess_packet_body_t *pkt, void 
 {
 	struct samanager_topic_entry * topicentry = samanager_topic_find(topic);
 	
+	if(g_bUninitialized)
+		return;
+
 	if(topicentry != NULL)
 	{
 		char* pReqInfoPayload = NULL;
@@ -891,12 +1008,15 @@ void SAMANAGER_API SAManager_Initialize(susiaccess_agent_conf_body_t * config, s
 
 		hlloader_handler_start(g_pSALoader, &g_handlerList);
 	}
+	g_bUninitialized = false;
 }
 
 void SAMANAGER_API SAManager_Uninitialize()
 {
 	struct samanager_topic_entry *iter_topic = NULL;
 	struct samanager_topic_entry *tmp_topic = NULL;
+
+	g_bUninitialized = true;
 
 	keepalive_uninitialize();
 
@@ -979,7 +1099,15 @@ void SAMANAGER_API SAManager_InternalSubscribe()
 		return;
 	sprintf(topicStr, DEF_CALLBACKREQ_TOPIC, g_pProfile->devId);
 	if(g_subscribeCB)
-		g_subscribeCB(topicStr, 1, SAManager_RecvInternalCommandReq);
+	{
+		while(g_subscribeCB(topicStr, 1, SAManager_RecvInternalCommandReq)!=0)
+		{
+			SAManagerLog(g_samanagerlogger, Warning, "Subscribe Topic %s Fail", topicStr);
+			if(g_bUninitialized)
+				break;
+			usleep(500000);
+		}
+	}
 
 	memset(topicStr, 0, sizeof(topicStr));
 	sprintf(topicStr, DEF_ACTIONACK_TOPIC, g_pProfile->devId);
@@ -988,7 +1116,15 @@ void SAMANAGER_API SAManager_InternalSubscribe()
 
 	/* Add Server Broadcast Topic Callback*/
 	if(g_subscribeCB)
-		g_subscribeCB(DEF_AGENTCONTROL_TOPIC, 2, SAManager_RecvInternalCommandReq);
+	{
+		while(g_subscribeCB(DEF_AGENTCONTROL_TOPIC, 2, SAManager_RecvInternalCommandReq)!=0)
+		{
+			SAManagerLog(g_samanagerlogger, Warning, "Subscribe Topic %s Fail", DEF_AGENTCONTROL_TOPIC);
+			if(g_bUninitialized)
+				break;
+			usleep(500000);
+		}
+	}
 }
 
 void SAMANAGER_API SAManager_UpdateConnectState(int status)

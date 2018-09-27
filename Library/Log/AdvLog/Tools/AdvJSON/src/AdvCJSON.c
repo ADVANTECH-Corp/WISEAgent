@@ -12,7 +12,7 @@
 #include "jsontool.h"
 #include "platform.h"
 
-int JSON_Validator(const char *json) {
+int ADVJSON_CALL JSON_Validator(const char *json) {
 	if(json == NULL) return -1;
 	int check;
 	char *s = strchr((char *)json,'{');
@@ -29,7 +29,7 @@ int JSON_Validator(const char *json) {
 	else return check;
 }
 
-int JSON_ShowError(const char *json, int pos) {
+int ADVJSON_CALL JSON_ShowError(const char *json, int pos) {
 	if(pos == 0) return 0;
 	char *s = strchr((char *)json,'{');
 	char *t = s + pos -1;
@@ -55,7 +55,7 @@ int JSON_ShowError(const char *json, int pos) {
 	return 0;
 }
 
-JSONode *JSON_Parser(const char *json) {
+JSONode * ADVJSON_CALL JSON_Parser(const char *json) {
 	if(0 == JSON_Validator(json)) {
 		return ParseObject(json, NewCollection(), NULL, NULL);
 	} else {
@@ -64,12 +64,12 @@ JSONode *JSON_Parser(const char *json) {
 	}
 }
 
-JSONode *JSON_Copy(JSONode *json) {
+JSONode * ADVJSON_CALL JSON_Copy(JSONode *json) {
 	if(json == NULL) return NULL;
 	return CopyNode(json, NULL);
 }
 
-void JSON_Destory(JSONode **json) {
+void ADVJSON_CALL JSON_Destory(JSONode **json) {
 	if(*json != NULL) {
 		JSONCollect *collect = (JSONCollect *)(*json)->collection;
 		DeleteNode(*json);
@@ -78,18 +78,18 @@ void JSON_Destory(JSONode **json) {
 	}
 }
 
-void JSON_Print(JSONode *json) {
+void ADVJSON_CALL JSON_Print(JSONode *json) {
 	if(json == NULL) return;
 	char temp[4096];
 	//ADV_DEBUG("JSON = (%p)\n",json);
 	PrintObject(temp, sizeof(temp), json, -1);
 	//printf("\033[33m%s\033[0m\n",temp);
 }
-void JSON_PrintLink(JSONode *json) {
+void ADVJSON_CALL JSON_PrintLink(JSONode *json) {
 	if(json == NULL) return;
 	PLObject(json, 0);
 }
-void JSON_ReleaseCollection(JSONode *node) {
+void ADVJSON_CALL JSON_ReleaseCollection(JSONode *node) {
 	if(node == NULL) return;
 	JSONCollect *collect = (JSONCollect *)node->collection;
 	ReleaseCollection((JSONCollect **)&collect);
@@ -225,7 +225,7 @@ static JSONode *__JSON_Find_Node(JSONode *json, const char *path) {
 }
 
 
-void JSON_Get(JSONode *json, const char *path, char *result, int size) {
+void ADVJSON_CALL JSON_Get(JSONode *json, const char *path, char *result, int size) {
 	if(json == NULL) {
 		snprintf(result,size,"NULL");
 		return;
@@ -464,7 +464,7 @@ void JSON_Delete(JSONode *json, const char *path) {
 //Edit		PUT
 //Delete	DELETE
 
-void JSON_Cmd(JSONode *json, const char *path, char *assign, int size) {
+void ADVJSON_CALL JSON_Cmd(JSONode *json, const char *path, char *assign, int size) {
 	if(json == NULL) {
 		return;
 	}

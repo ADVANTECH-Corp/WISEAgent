@@ -109,7 +109,7 @@ inline static void RollFile_New() {
 			snprintf(fullname, sizeof(fullname), "%s/%s%s.html", pathname, filename,name);
 		} else {
 			snprintf(fullname, sizeof(fullname), "%s/%s%s.log", pathname, filename,name);
-	}
+		}
 		oldt = t;
 	} while(access(fullname,F_OK) == 0);
 	
@@ -224,7 +224,7 @@ char * GetFolderPath()
 		   snprintf(temp,sizeof(temp),"%s/%s",workingdir,p);
 #endif
 	}
-			return temp;
+	return temp;
 }
 
 

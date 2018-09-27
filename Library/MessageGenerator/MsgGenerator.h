@@ -125,7 +125,7 @@ extern "C" {
 	char* MSG_PrintUnformatted(MSG_CLASSIFY_T* msg);
 	char *MSG_PrintWithFiltered(MSG_CLASSIFY_T* msg, char** filter, int length);
 	char *MSG_PrintSelectedWithFiltered(MSG_CLASSIFY_T* msg, char** filter, int length, char* reqItems);
-	
+
 	void MSG_SetDataChangeCallback(MSG_CLASSIFY_T* msg, AttributeChangedCbf on_datachanged, void* pRev1);
 	
 

@@ -210,6 +210,8 @@ void * MQTT_Initialize(char const * devid)
 	
 	mosquitto_publish_callback_set(mosq, MQTT_publish_callback);
 
+	mosquitto_reconnect_delay_set(mosq, 10, 60, false);
+
 	return mosq;
 }
 
