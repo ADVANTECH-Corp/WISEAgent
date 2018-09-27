@@ -152,7 +152,7 @@ static void AdvLog_Configure_Assign_From_JSON(AdvLogConf *conf, AdvJSON json) {
 	if(value != "NULL") {
 		conf->limit = atoi(value.c_str());
 	}
-	
+
 	value = json[conf->configureName]["files"].Value();
 	if(value != "NULL") {
 		conf->files = atoi(value.c_str());

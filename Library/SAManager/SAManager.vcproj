@@ -581,6 +581,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\..\Platform\Windows\sys\time.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\Platform\Windows\sys\time.h"
+					>
+				</File>
+				<File
 					RelativePath="..\..\Platform\Windows\unistd.h"
 					>
 				</File>

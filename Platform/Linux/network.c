@@ -286,7 +286,7 @@ int network_mac_get_ex(char * macstr)
    struct ifreq ifr_mac;
    struct ifconf ifc;
    char buf[1024];
-   
+
    iRet = network_mac_get_ex2(macstr);
    if(iRet == 0)
 	return iRet;
@@ -399,7 +399,7 @@ int getMAC(char *name, char * macstr, bool filter) {
 			addr[4],
 			addr[5]);
     	}
-
+	
 	
 	iRet = 0;
 	return iRet;

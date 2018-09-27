@@ -382,7 +382,7 @@ int HANDLERKERNEL_API HandlerKernel_GetSensorData(int replyID, char* sessionID, 
 
 	if(g_pHandlerKernel == NULL)
 		return handler_fail;
-	
+
 	return HandlerKernelEx_GetSensorData(g_pHandlerKernel, replyID, sessionID, pInQuery, on_get_sensor);
 }
 

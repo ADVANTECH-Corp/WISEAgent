@@ -140,7 +140,7 @@ void ReleaseAttribute(MSG_ATTRIBUTE_T* attr)
 		attr->on_datachanged = NULL;
 		attr->pRev1 = NULL;
 	}
-			
+
 	{
 		EXT_ATTRIBUTE_T* extattr = attr->extra;
 		while(extattr)
@@ -151,14 +151,14 @@ void ReleaseAttribute(MSG_ATTRIBUTE_T* attr)
 				if(extattr->sv)
 				{
 					free(extattr->sv);
-		}
-		attr->sv = NULL;
-	}
+				}
+				attr->sv = NULL;
+			}
 			free(extattr);
 			extattr = extnext;
 		}
 	}
-
+	
 	free(attr);
 }
 
@@ -506,7 +506,7 @@ bool MSG_SetStringValue(MSG_ATTRIBUTE_T* attr, char *svalue, char* readwritemode
 	if(readwritemode)
 		strncpy(attr->readwritemode, readwritemode, strlen(readwritemode));
 	attr->bRange = false;
-	
+
 	if(bNotify)
 		if(attr->on_datachanged)
 			attr->on_datachanged(attr, attr->pRev1);
@@ -675,8 +675,8 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 							cJSON_AddNumberToObject(pAttr, TAG_MIN, curAttr->min);
 					}
 					if(strlen(curAttr->readwritemode)>0)
-					if(MatchFilterString(TAG_ASM, filter, length))
-						cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
+						if(MatchFilterString(TAG_ASM, filter, length))
+							cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
 	
 
 					if(strlen(curAttr->unit)>0)
@@ -698,8 +698,8 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 							cJSON_AddFalseToObject(pAttr, TAG_BOOLEAN);
 					}
 					if(strlen(curAttr->readwritemode)>0)
-					if(MatchFilterString(TAG_ASM, filter, length))
-						cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
+						if(MatchFilterString(TAG_ASM, filter, length))
+							cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
 				}
 				break;
 			case attr_type_string:
@@ -717,8 +717,8 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 						}
 					}
 					if(strlen(curAttr->readwritemode)>0)
-					if(MatchFilterString(TAG_ASM, filter, length))
-						cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
+						if(MatchFilterString(TAG_ASM, filter, length))
+							cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
 				}
 				break;
 			case  attr_type_date:
@@ -738,8 +738,8 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 						}
 					}
 					if(strlen(curAttr->readwritemode)>0)
-					if(MatchFilterString(TAG_ASM, filter, length))
-						cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
+						if(MatchFilterString(TAG_ASM, filter, length))
+							cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
 				}
 				break;
 			case  attr_type_timestamp:
@@ -756,8 +756,8 @@ bool AddJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr_list, char** filter, 
 						}
 					}
 					if(strlen(curAttr->readwritemode)>0)
-					if(MatchFilterString(TAG_ASM, filter, length))
-						cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
+						if(MatchFilterString(TAG_ASM, filter, length))
+							cJSON_AddStringToObject(pAttr, TAG_ASM, curAttr->readwritemode);
 				}
 				break;
 			default:
@@ -981,146 +981,146 @@ bool AddSingleJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr, char** filter,
 		return false;
 
 	if(attr->bSensor)
-		{	
-			pENode = cJSON_GetObjectItem(pClass, TAG_E_NODE);
-			if(!pENode)
-			{
-				pENode = cJSON_CreateArray();
-				cJSON_AddItemToObject(pClass, TAG_E_NODE, pENode);
-			}
+	{	
+		pENode = cJSON_GetObjectItem(pClass, TAG_E_NODE);
+		if(!pENode)
+		{
+			pENode = cJSON_CreateArray();
+			cJSON_AddItemToObject(pClass, TAG_E_NODE, pENode);
+		}
 
 
+		{
+			int size = cJSON_GetArraySize(pENode);
+			int i=0;
+			for(i=0; i<size;i++)
 			{
-				int size = cJSON_GetArraySize(pENode);
-				int i=0;
-				for(i=0; i<size;i++)
+				cJSON* pNode = cJSON_GetArrayItem(pENode, i);
+				if(pNode)
 				{
-					cJSON* pNode = cJSON_GetArrayItem(pENode, i);
+					pNode = cJSON_GetObjectItem(pNode, TAG_ATTR_NAME);
 					if(pNode)
 					{
-						pNode = cJSON_GetObjectItem(pNode, TAG_ATTR_NAME);
-						if(pNode)
-						{
-							if(strcmp(pNode->valuestring, attr->name) == 0)
-								return true;
-						}
-
+						if(strcmp(pNode->valuestring, attr->name) == 0)
+							return true;
 					}
+
 				}
 			}
+		}
 
-			pAttr = cJSON_CreateObject();
-			cJSON_AddItemToArray(pENode, pAttr);
-			if(MatchFilterString(TAG_ATTR_NAME, filter, length))
-				cJSON_AddStringToObject(pAttr, TAG_ATTR_NAME, attr->name);
-			switch (attr->type)
+		pAttr = cJSON_CreateObject();
+		cJSON_AddItemToArray(pENode, pAttr);
+		if(MatchFilterString(TAG_ATTR_NAME, filter, length))
+			cJSON_AddStringToObject(pAttr, TAG_ATTR_NAME, attr->name);
+		switch (attr->type)
+		{
+		case attr_type_numeric:
 			{
-			case attr_type_numeric:
-				{
-					if(MatchFilterString(TAG_VALUE, filter, length))
-					{
-						if(attr->bNull)
-							cJSON_AddNullToObject(pAttr, TAG_VALUE);
-						else
-							cJSON_AddNumberToObject(pAttr, TAG_VALUE, attr->v);
-					}
-					if(attr->bRange)
-					{
-						if(MatchFilterString(TAG_MAX, filter, length))
-							cJSON_AddNumberToObject(pAttr, TAG_MAX, attr->max);
-						if(MatchFilterString(TAG_MIN, filter, length))
-							cJSON_AddNumberToObject(pAttr, TAG_MIN, attr->min);
-					}
-				if(strlen(attr->readwritemode)>0)
-					if(MatchFilterString(TAG_ASM, filter, length))
-						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
-	
-					if(strlen(attr->unit)>0)
-					{
-						if(MatchFilterString(TAG_UNIT, filter, length))
-							cJSON_AddStringToObject(pAttr, TAG_UNIT, attr->unit);
-					}
-				}
-				break;
-			case attr_type_boolean:
-				{
-					if(MatchFilterString(TAG_BOOLEAN, filter, length))
-					{
-						if(attr->bNull)
-							cJSON_AddNullToObject(pAttr, TAG_BOOLEAN);
-						else if(attr->bv)
-							cJSON_AddTrueToObject(pAttr, TAG_BOOLEAN);
-						else
-							cJSON_AddFalseToObject(pAttr, TAG_BOOLEAN);
-					}
-				if(strlen(attr->readwritemode)>0)
-					if(MatchFilterString(TAG_ASM, filter, length))
-						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
-				}
-				break;
-			case attr_type_string:
+				if(MatchFilterString(TAG_VALUE, filter, length))
 				{
 					if(attr->bNull)
-					{
-						if(MatchFilterString(TAG_VALUE, filter, length))
-							cJSON_AddNullToObject(pAttr, TAG_STRING);
-					}
-					else if(strlen(attr->sv)>0)
-					{
-						if(MatchFilterString(TAG_STRING, filter, length))
-						{
-							cJSON_AddStringToObject(pAttr, TAG_STRING, attr->sv);
-						}
-					}
+						cJSON_AddNullToObject(pAttr, TAG_VALUE);
+					else
+						cJSON_AddNumberToObject(pAttr, TAG_VALUE, attr->v);
+				}
+				if(attr->bRange)
+				{
+					if(MatchFilterString(TAG_MAX, filter, length))
+						cJSON_AddNumberToObject(pAttr, TAG_MAX, attr->max);
+					if(MatchFilterString(TAG_MIN, filter, length))
+						cJSON_AddNumberToObject(pAttr, TAG_MIN, attr->min);
+				}
 				if(strlen(attr->readwritemode)>0)
 					if(MatchFilterString(TAG_ASM, filter, length))
 						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
-				}
-				break;
-			case  attr_type_date:
+
+				if(strlen(attr->unit)>0)
 				{
-					if(attr->bNull)
-					{
-						if(MatchFilterString(TAG_VALUE, filter, length))
-							cJSON_AddNullToObject(pAttr, TAG_VALUE);
-					}
-					else if(strlen(attr->sv)>0)
-					{
-						if(MatchFilterString(TAG_VALUE, filter, length))
-						{
-							cJSON* pDateRoot = cJSON_CreateObject();
-							cJSON_AddItemToObject(pAttr, TAG_VALUE, pDateRoot);
-							cJSON_AddStringToObject(pDateRoot, TAG_DATE, attr->sv);
-						}
-					}
-				if(strlen(attr->readwritemode)>0)
-					if(MatchFilterString(TAG_ASM, filter, length))
-						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
+					if(MatchFilterString(TAG_UNIT, filter, length))
+						cJSON_AddStringToObject(pAttr, TAG_UNIT, attr->unit);
 				}
-				break;
-			case  attr_type_timestamp:
-				{
-					if(MatchFilterString(TAG_VALUE, filter, length))
-					{
-						if(attr->bNull)
-							cJSON_AddNullToObject(pAttr, TAG_VALUE);
-						else 
-						{
-							cJSON* pDateRoot = cJSON_CreateObject();
-							cJSON_AddItemToObject(pAttr, TAG_VALUE, pDateRoot);
-							cJSON_AddNumberToObject(pDateRoot, TAG_TIMESTAMP, attr->v);
-						}
-					}
-				if(strlen(attr->readwritemode)>0)
-					if(MatchFilterString(TAG_ASM, filter, length))
-						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
-				}
-				break;
-			default:
-				{
-				}
-				break;
 			}
+			break;
+		case attr_type_boolean:
+			{
+				if(MatchFilterString(TAG_BOOLEAN, filter, length))
+				{
+					if(attr->bNull)
+						cJSON_AddNullToObject(pAttr, TAG_BOOLEAN);
+					else if(attr->bv)
+						cJSON_AddTrueToObject(pAttr, TAG_BOOLEAN);
+					else
+						cJSON_AddFalseToObject(pAttr, TAG_BOOLEAN);
+				}
+				if(strlen(attr->readwritemode)>0)
+					if(MatchFilterString(TAG_ASM, filter, length))
+						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
+			}
+			break;
+		case attr_type_string:
+			{
+				if(attr->bNull)
+				{
+					if(MatchFilterString(TAG_VALUE, filter, length))
+						cJSON_AddNullToObject(pAttr, TAG_STRING);
+				}
+				else if(strlen(attr->sv)>0)
+				{
+					if(MatchFilterString(TAG_STRING, filter, length))
+					{
+						cJSON_AddStringToObject(pAttr, TAG_STRING, attr->sv);
+					}
+				}
+				if(strlen(attr->readwritemode)>0)
+					if(MatchFilterString(TAG_ASM, filter, length))
+						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
+			}
+			break;
+		case  attr_type_date:
+			{
+				if(attr->bNull)
+				{
+					if(MatchFilterString(TAG_VALUE, filter, length))
+						cJSON_AddNullToObject(pAttr, TAG_VALUE);
+				}
+				else if(strlen(attr->sv)>0)
+				{
+					if(MatchFilterString(TAG_VALUE, filter, length))
+					{
+						cJSON* pDateRoot = cJSON_CreateObject();
+						cJSON_AddItemToObject(pAttr, TAG_VALUE, pDateRoot);
+						cJSON_AddStringToObject(pDateRoot, TAG_DATE, attr->sv);
+					}
+				}
+				if(strlen(attr->readwritemode)>0)
+					if(MatchFilterString(TAG_ASM, filter, length))
+						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
+			}
+			break;
+		case  attr_type_timestamp:
+			{
+				if(MatchFilterString(TAG_VALUE, filter, length))
+				{
+					if(attr->bNull)
+						cJSON_AddNullToObject(pAttr, TAG_VALUE);
+					else 
+					{
+						cJSON* pDateRoot = cJSON_CreateObject();
+						cJSON_AddItemToObject(pAttr, TAG_VALUE, pDateRoot);
+						cJSON_AddNumberToObject(pDateRoot, TAG_TIMESTAMP, attr->v);
+					}
+				}
+				if(strlen(attr->readwritemode)>0)
+					if(MatchFilterString(TAG_ASM, filter, length))
+						cJSON_AddStringToObject(pAttr, TAG_ASM, attr->readwritemode);
+			}
+			break;
+		default:
+			{
+			}
+			break;
+		}
 
 		{
 			EXT_ATTRIBUTE_T* extattr = attr->extra;
@@ -1165,91 +1165,91 @@ bool AddSingleJSONAttribute(cJSON *pClass, MSG_ATTRIBUTE_T *attr, char** filter,
 				extattr = extattr->next;
 			}
 		}
-		}
-		else
-		{	
-			switch (attr->type)
+	}
+	else
+	{	
+		switch (attr->type)
+		{
+		case attr_type_numeric:
 			{
-			case attr_type_numeric:
-				{
-					if(MatchFilterString(attr->name, filter, length))
-					{
-						if(attr->bNull)
-							cJSON_AddNullToObject(pClass, attr->name);
-						else 
-							cJSON_AddNumberToObject(pClass, attr->name, attr->v);
-					}
-				}
-				break;
-			case attr_type_boolean:
-				{
-					if(MatchFilterString(attr->name, filter, length))
-					{
-						if(attr->bNull)
-							cJSON_AddNullToObject(pClass, attr->name);
-						else if(attr->bv)
-							cJSON_AddTrueToObject(pClass, attr->name);
-						else
-							cJSON_AddFalseToObject(pClass, attr->name);
-					}
-				}
-				break;
-			case attr_type_string:
+				if(MatchFilterString(attr->name, filter, length))
 				{
 					if(attr->bNull)
-					{
-						if(MatchFilterString(TAG_VALUE, filter, length))
-							cJSON_AddNullToObject(pClass, attr->name);
-					}
-					else if(strlen(attr->sv)>0)
-					{
-						if(MatchFilterString(attr->name, filter, length))
-						{
-							cJSON_AddStringToObject(pClass, attr->name, attr->sv);
-						}
-					}
+						cJSON_AddNullToObject(pClass, attr->name);
+					else 
+						cJSON_AddNumberToObject(pClass, attr->name, attr->v);
 				}
-				break;
-			case  attr_type_date:
-				{
-					if(attr->bNull)
-					{
-						if(MatchFilterString(attr->name, filter, length))
-							cJSON_AddNullToObject(pClass, attr->name);
-					}
-					else if(strlen(attr->sv)>0)
-					{
-						if(MatchFilterString(attr->name, filter, length))
-						{
-							cJSON* pDateRoot = cJSON_CreateObject();
-							cJSON_AddItemToObject(pClass, attr->name, pDateRoot);
-							cJSON_AddStringToObject(pDateRoot, TAG_DATE, attr->sv);
-						}
-					}
-				}
-				break;
-			case  attr_type_timestamp:
-				{
-					if(MatchFilterString(attr->name, filter, length))
-					{
-
-						if(attr->bNull)
-							cJSON_AddNullToObject(pClass, attr->name);
-						else 
-						{
-							cJSON* pDateRoot = cJSON_CreateObject();
-							cJSON_AddItemToObject(pClass, attr->name, pDateRoot);
-							cJSON_AddNumberToObject(pDateRoot, TAG_TIMESTAMP, attr->v);
-						}
-					}
-				}
-				break;
-			default:
-				{
-				}
-				break;
 			}
+			break;
+		case attr_type_boolean:
+			{
+				if(MatchFilterString(attr->name, filter, length))
+				{
+					if(attr->bNull)
+						cJSON_AddNullToObject(pClass, attr->name);
+					else if(attr->bv)
+						cJSON_AddTrueToObject(pClass, attr->name);
+					else
+						cJSON_AddFalseToObject(pClass, attr->name);
+				}
+			}
+			break;
+		case attr_type_string:
+			{
+				if(attr->bNull)
+				{
+					if(MatchFilterString(TAG_VALUE, filter, length))
+						cJSON_AddNullToObject(pClass, attr->name);
+				}
+				else if(strlen(attr->sv)>0)
+				{
+					if(MatchFilterString(attr->name, filter, length))
+					{
+						cJSON_AddStringToObject(pClass, attr->name, attr->sv);
+					}
+				}
+			}
+			break;
+		case  attr_type_date:
+			{
+				if(attr->bNull)
+				{
+					if(MatchFilterString(attr->name, filter, length))
+						cJSON_AddNullToObject(pClass, attr->name);
+				}
+				else if(strlen(attr->sv)>0)
+				{
+					if(MatchFilterString(attr->name, filter, length))
+					{
+						cJSON* pDateRoot = cJSON_CreateObject();
+						cJSON_AddItemToObject(pClass, attr->name, pDateRoot);
+						cJSON_AddStringToObject(pDateRoot, TAG_DATE, attr->sv);
+					}
+				}
+			}
+			break;
+		case  attr_type_timestamp:
+			{
+				if(MatchFilterString(attr->name, filter, length))
+				{
+
+					if(attr->bNull)
+						cJSON_AddNullToObject(pClass, attr->name);
+					else 
+					{
+						cJSON* pDateRoot = cJSON_CreateObject();
+						cJSON_AddItemToObject(pClass, attr->name, pDateRoot);
+						cJSON_AddNumberToObject(pDateRoot, TAG_TIMESTAMP, attr->v);
+					}
+				}
+			}
+			break;
+		default:
+			{
+			}
+			break;
 		}
+	}
 	return true;
 }
 

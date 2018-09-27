@@ -179,7 +179,7 @@ void  saclient_on_recv(const char* topic, const void* payload, const int payload
 
 		scparser_message_parse(payload, payloadlen, &pkt);
 		if(target->callback_func)
-		target->callback_func(topic, &pkt, NULL, NULL);
+			target->callback_func(topic, &pkt, NULL, NULL);
 
 		free(pkt.content);
 	}

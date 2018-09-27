@@ -10,7 +10,7 @@
 
 #if defined(WIN32)
 	#pragma once
-	#include <AdvPlatform.h>
+	//#include <AdvPlatform.h>
 	#ifdef ADVJSON_EXPORTS
 		#define ADVJSON_CALL __stdcall
 		#define ADVJSON_EXPORT __declspec(dllexport)
@@ -153,19 +153,19 @@ private:
 extern "C" {
 #endif
 
-int JSON_Validator(const char *json);
-int JSON_ShowError(const char *json, int pos);
+ADVJSON_EXPORT int ADVJSON_CALL JSON_Validator(const char *json);
+ADVJSON_EXPORT int ADVJSON_CALL JSON_ShowError(const char *json, int pos);
 
-JSONode *JSON_Parser(const char *json);
-void JSON_Destory(JSONode **json);
+ADVJSON_EXPORT JSONode  *ADVJSON_CALL JSON_Parser(const char *json);
+ADVJSON_EXPORT void ADVJSON_CALL JSON_Destory(JSONode **json);
 
-JSONode *JSON_Copy(JSONode *json);
-void JSON_Get(JSONode *json, const char *path, char *result, int size);
-void JSON_Cmd(JSONode *json, const char *path, char *assign, int size);
-void JSON_Print(JSONode *json);
-void JSON_PrintLink(JSONode *json);
+ADVJSON_EXPORT JSONode * ADVJSON_CALL JSON_Copy(JSONode *json);
+ADVJSON_EXPORT void ADVJSON_CALL JSON_Get(JSONode *json, const char *path, char *result, int size);
+ADVJSON_EXPORT void ADVJSON_CALL JSON_Cmd(JSONode *json, const char *path, char *assign, int size);
+ADVJSON_EXPORT void ADVJSON_CALL JSON_Print(JSONode *json);
+ADVJSON_EXPORT void ADVJSON_CALL JSON_PrintLink(JSONode *json);
 
-void JSON_ReleaseCollection(JSONode *node);
+ADVJSON_EXPORT void ADVJSON_CALL JSON_ReleaseCollection(JSONode *node);
 
 #ifdef __cplusplus
 }

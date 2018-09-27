@@ -14,8 +14,8 @@ struct triggerdata {
 };
 
 struct trigger_ctx{
-   void*			threadHandler;
-   bool				isThreadRunning;
+   void*				threadHandler;
+   bool					isThreadRunning;
    struct triggerdata*	triggerqueue;
    THRESHOLD_ON_TRIGGER	on_triggered_cb;
 };
@@ -82,7 +82,7 @@ void* triggerqueue_init(const unsigned int slots)
 		{
 			triggerthreadctx->isThreadRunning = true;
 			if (pthread_create(&triggerthreadctx->threadHandler, NULL, threat_trigger_queue, triggerthreadctx) != 0)
-		{
+			{
 				triggerthreadctx->isThreadRunning = false;
 				queue_uninit((struct queue *const)triggerthreadctx->triggerqueue, trigger_free);
 				free(triggerthreadctx->triggerqueue);
@@ -111,7 +111,7 @@ void triggerqueue_uninit(void* qtrigger)
 		return;
 	triggerthreadctx = qtrigger;
 	triggerthreadctx->on_triggered_cb = NULL;
-
+	
 	if(triggerthreadctx->isThreadRunning == true)
 	{
 		triggerthreadctx->isThreadRunning = false;

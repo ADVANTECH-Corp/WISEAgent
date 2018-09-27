@@ -58,18 +58,23 @@ char *GetIniKeyString(char *title,char *key,char *filename)
     FILE *fp; 
     char szLine[1024];
     static char tmpstr[1024];
+	char tmpkey[1024];
+	int tmpkeylength = 0;
     int rtnval;
     int i = 0; 
     int flag = 0; 
     char *tmp;
+	char *pch;
  
     if((fp = fopen(filename, "r")) == NULL) 
     { 
         printf("have   no   such   file \n");
         return ""; 
     }
+
     while(!feof(fp)) 
-    { 
+    {
+		memset(tmpkey, 0, sizeof(tmpkey));
         rtnval = fgetc(fp); 
         if(rtnval == EOF) 
         { 
@@ -85,13 +90,24 @@ char *GetIniKeyString(char *title,char *key,char *filename)
             i--;
 #endif  
             szLine[--i] = '\0';
-            i = 0; 
-            tmp = strchr(szLine, '='); 
+            i = 0;
+
+			pch = strstr(szLine, key);
+            tmp = strchr(szLine, '=');
+			tmpkeylength = tmp - pch;
+
+			if (pch)
+			{
+				if(tmpkeylength > 0)
+					strncpy(tmpkey, pch, tmp - pch);
+				else
+					strcpy(tmpkey, pch);
+			}
  
-            if(( tmp != NULL )&&(flag == 1)) 
-            { 
-                if(strstr(szLine,key)!=NULL) 
-                { 
+            if(( tmp != NULL )&&(flag == 1))
+            {
+				if(strcmp(tmpkey, key) == 0)
+                {
                     if ('#' == szLine[0])
                     {
                     }

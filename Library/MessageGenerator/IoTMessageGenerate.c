@@ -72,7 +72,7 @@ MSG_ATTRIBUTE_T* IoT_AddSensorNode(MSG_CLASSIFY_T* pNode, char* senName)
 	}
 	return attr;
 }
-	
+
 MSG_ATTRIBUTE_T* IoT_AddOPTSNode(MSG_CLASSIFY_T* pNode)
 {
 	MSG_CLASSIFY_T *pCurNode = NULL;
