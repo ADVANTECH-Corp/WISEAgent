@@ -8,7 +8,7 @@ LIB_3RD_DIR := $(PROJECT_ROOT_DIR)/Library3rdParty
 
 application_DIR := Sample/SampleAgent
 		   
-shared_lib_NAME := libSAConfig libSAClient libSAManager libSAHandlerLoader libSAGeneralHandler
+shared_lib_NAME := libSAConfig libSAClient libSAManager libSAHandlerLoader libSAGeneralHandler libmqtthelper
 
 program_3rdPARTY_LIBRARIES := mosquitto xml2 curl pthread
 
